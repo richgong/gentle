@@ -1,0 +1,28 @@
+{
+  "name": "mvp",
+  "description": "An MVP project.",
+  "version": "0.0.0",
+  "author": "",
+  "private": true,
+  "scripts": {
+    "dev": "NODE_ENV=development webpack-dev-server --no-info --port 3000",
+    "build": "NODE_ENV=production webpack -p"
+  },
+  "dependencies": {
+    "@babel/core": "^7.6.4",
+    "@babel/plugin-proposal-class-properties": "^7.5.5",
+    "@babel/preset-env": "^7.6.3",
+    "@babel/preset-react": "^7.6.3",
+    "babel-loader": "^8.0.6",
+    "prop-types": "^15.7.2",
+    "react": "^16.11.0",
+    "react-dom": "^16.11.0",
+    "react-hot-loader": "^4.12.15",
+    "webpack": "^4.41.2"
+  },
+  "devDependencies": {
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-server": "^3.9.0",
+    "webpack-hot-middleware": "^2.25.0"
+  }
+}
