@@ -25,6 +25,8 @@ module.exports = {
                         ],
                         plugins: [
                             "@babel/plugin-proposal-class-properties",
+                            // For async: https://stackoverflow.com/questions/33527653/babel-6-regeneratorruntime-is-not-defined/53736090#53736090
+                            "@babel/transform-runtime",
                         ],
                     }
                 }

@@ -1,5 +1,16 @@
 {% extends '_base.html' %}
 
+{% block extra_head %}
+    <style>
+        video {
+            vertical-align: top;
+            --width: 25vw;
+            width: var(--width);
+            height: calc(var(--width) * 0.5625);
+        }
+    </style>
+{% endblock %}
+
 {% block content %}
     <div class="container my-3">
         <div id="app">Loading...</div>
