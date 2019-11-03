@@ -30,8 +30,8 @@ def run_view():
         for k,v in p.items():
             logging.debug("%s: %s" % (k, v))
 
-    text_file = '/Users/richardgong/personal/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.original.txt'
-    audio_file = '/Users/richardgong/personal/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.wav'
+    text_file = 'gong/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.original.txt'
+    audio_file = 'gong/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.wav'
 
     with open(text_file, encoding="utf-8") as fh:
         transcript = fh.read()
