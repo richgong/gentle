@@ -41,8 +41,8 @@ def run_view():
         for k,v in p.items():
             logging.debug("%s: %s" % (k, v))
 
-    text_file = 'gong/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.original.txt'
-    audio_file = 'gong/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.wav'
+    text_file = 'gong/static/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.original.txt'
+    audio_file = 'gong/static/LibriTTS/train-clean-100/103/1241/103_1241_000000_000001.wav'
 
     with open(text_file, encoding="utf-8") as fh:
         transcript = fh.read()
@@ -70,3 +70,7 @@ def send_js(path):
 @app.route('/about')
 def about_view():
     return render_template('about.html')
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=8080)

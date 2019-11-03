@@ -13,4 +13,8 @@ gentle.egg-info/
 exp/
 ext/k3
 ext/m3
+
+# Gong
 node_modules/
+LibriTTS
+gong/static/compiled/
