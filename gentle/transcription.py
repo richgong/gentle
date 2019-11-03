@@ -94,6 +94,14 @@ class Transcription:
             container['words'] = [word.as_dict(without="duration") for word in self.words]
         return json.dumps(container, **options)
 
+    def to_dict(self):
+        container = {}
+        if self.transcript:
+            container['transcript'] = self.transcript
+        if self.words:
+            container['words'] = [word.as_dict(without="duration") for word in self.words]
+        return container
+
     @classmethod
     def from_json(cls, json_str):
         return cls._from_jsondata(json.loads(json_str))
