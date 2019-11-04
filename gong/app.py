@@ -39,27 +39,15 @@ TRAIN_PATH = os.path.realpath('gong/static/LibriTTS/train-clean-100')
 print("TRAIN_PATH:", TRAIN_PATH)
 
 
-@app.route('/api/train_list/')
-def train_list_api():
-    items = []
-    for filepath in glob.glob(f'{TRAIN_PATH}/*/*/*.wav'):
-        if not os.path.isfile(filepath):
-            continue
-        item = os.path.relpath(filepath, TRAIN_PATH)[:-4]
-        items.append(item)
-    return jsonify(items=items)
-
-
-@app.route('/run')
-def run_view():
+def run_gentle(key='103/1241/103_1241_000000_000001'):
     disfluencies = set(['uh', 'um'])
 
     def on_progress(p):
         for k,v in p.items():
             logging.debug("%s: %s" % (k, v))
 
-    text_file = f'{TRAIN_PATH}/103/1241/103_1241_000000_000001.original.txt'
-    audio_file = f'{TRAIN_PATH}/103/1241/103_1241_000000_000001.wav'
+    text_file = f'{TRAIN_PATH}/{key}.original.txt'
+    audio_file = f'{TRAIN_PATH}/{key}.wav'
 
     with open(text_file, encoding="utf-8") as fh:
         transcript = fh.read()
@@ -76,12 +64,33 @@ def run_view():
                                        conservative=False,
                                        disfluencies=disfluencies)
         result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
-    return jsonify(x=result.to_dict())
+        return result.to_dict()
 
 
-@app.route('/static/<path:path>')
-def send_js(path):
-    return send_from_directory('static', path)
+@app.route('/api/train_list/')
+def train_list_api():
+    items = []
+    for filepath in glob.glob(f'{TRAIN_PATH}/*/*/*.wav'):
+        if not os.path.isfile(filepath):
+            continue
+        item = os.path.relpath(filepath, TRAIN_PATH)[:-4]
+        items.append(item)
+    return jsonify(items=items)
+
+
+@app.route('/api/train_list/<path:key>')
+def train_item_info_api(key):
+    return jsonify(item=run_gentle(key))
+
+
+@app.route('/run')
+def run_view():
+    return jsonify(x=run_gentle())
+
+
+@app.route('/static/<path:subpath>')
+def static_view(subpath):
+    return send_from_directory('static', subpath)
 
 
 @app.route('/about')

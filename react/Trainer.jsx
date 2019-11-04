@@ -12,12 +12,15 @@ class Player extends React.Component {
             isRecording: false,
             hasRecording: false,
             playing: false,
-            itemIndex: -1,
+            itemKey: null,
+            loading: false,
         }
+        this.recordedBlobs = [];
         this.tone = new Tone.Player({
             "loop" : true
         }).toMaster();
         this.start()
+        document.querySelector("tone-player").bind(this.tone);
     }
 
     async start() {
@@ -50,25 +53,28 @@ class Player extends React.Component {
         }
     }
 
-    togglePlay() {
-        if (this.state.playing) {
-            this.tone.stop()
-        } else {
+    togglePlay(e, playing=null) {
+        if (playing === null)
+            playing = !this.state.playing
+        if (playing) {
             this.tone.start()
+        } else {
+            this.tone.stop()
         }
-        this.setState({playing: !this.state.playing})
+        this.setState({playing})
     }
 
     stop() {
         this.mediaRecorder.stop();
-        this.setState({isRecording: false, hasRecording: true})
+        this.setState({isRecording: false})
 
         const superBuffer = new Blob(this.recordedBlobs);
         let url = window.URL.createObjectURL(superBuffer)
+        this.loadUrl(url);
+    }
 
-        // Tone.js
-        this.tone.load(url, this.onLoaded.bind(this))
-        document.querySelector("tone-player").bind(this.tone);
+    loadUrl(url) {
+        this.tone.load(url, this.onLoaded.bind(this));
     }
 
     _computeRMS(buffer, width){
@@ -92,6 +98,8 @@ class Player extends React.Component {
     onLoaded() {
         try {
             let {tone} = this
+            this.togglePlay(null, false)
+
             const buffer = tone.buffer
             const canvas = document.getElementById('my-wav')
             const {width, height} = canvas
@@ -104,7 +112,7 @@ class Player extends React.Component {
             if (tone.loopEnd === 0) {
                 loopEnd = width
             }
-            this.color = '#cff';
+            this.color = '#0dd';
             context.fillStyle = this.color
             const lightened = tinycolor(this.color).setAlpha(0.2).toRgbString()
             this._waveform.forEach((val, i) => {
@@ -116,6 +124,17 @@ class Player extends React.Component {
                 context.fillRect(x, height / 2 - barHeight / 2, 1, barHeight)
                 context.fill()
             })
+            this.setState({hasRecording: true})
+            let {itemKey} = this.state
+            axios.get(`/api/train_list/${itemKey}`)
+                .then(response => {
+                    console.log("Got train info:", itemKey, buffer.duration, response.data)
+                    /*this.setState({
+                        trainItems: response.data.items
+                    })*/
+                    this.setState({loading: false})
+                })
+                .catch(console.error)
         } catch (error) {
             console.error(error)
         }
@@ -138,16 +157,18 @@ class Player extends React.Component {
 
     loadNextItem() {
         let itemIndex = Math.floor(random(0, this.props.trainItems.length))
-        console.log('itemIndex', itemIndex)
-        this.setState({itemIndex})
+        let itemKey = this.props.trainItems[itemIndex]
+        console.log('next itemKey', itemIndex, itemKey)
+        this.setState({itemKey, loading: true})
+        this.loadUrl(`/static/LibriTTS/train-clean-100/${itemKey}.wav`)
     }
 
     render() {
-        let { isStarted, isRecording, hasRecording, playing, itemIndex } = this.state
+        let { isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
             <div className="card my-5">
                 <h5 className="card-header">
-                    Wave player
+                    {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
                 </h5>
                 <div className="card-body">
                     <canvas id="my-wav" className="border border-primary" width="600" height="100" ref={wavCanvas => {this.wavCanvas = wavCanvas}}></canvas>
@@ -155,9 +176,9 @@ class Player extends React.Component {
                 <div className="card-footer text-muted">
                     {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
                     {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
-                    {hasRecording && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
+                    {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
                     {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                    <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemIndex})</button>
+                    <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemKey})</button>
                 </div>
             </div>
         )
@@ -180,7 +201,7 @@ export default class App extends React.Component {
                     trainItems: response.data.items
                 })
             })
-            .catch(error => console.error)
+            .catch(console.error)
     }
 
     render() {
