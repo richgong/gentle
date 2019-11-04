@@ -1,150 +1,165 @@
 import React from 'react'
 import axios from 'axios'
+import tinycolor from 'tinycolor2'
+import { random } from './utils'
 
 
-let mediaRecorder;
-let recordedBlobs;
-let sourceBuffer;
-
-
-/*const playButton = document.querySelector('button#play');
-playButton.addEventListener('click', () => {
-    const superBuffer = new Blob(recordedBlobs, {type: 'video/webm'});
-    recordedVideo.src = null;
-    recordedVideo.srcObject = null;
-    let url = window.URL.createObjectURL(superBuffer)
-    recordedVideo.src = url;
-    recordedVideo.controls = true;
-    recordedVideo.play();
-
-    // GONG) Tone.js
-    console.log("URL:", url)
-    var player = new Tone.Player({
-        "url" : url,
-        "loop" : true,
-        "loopStart" : 0.5,
-        "loopEnd" : 0.7,
-    }).toMaster();
-
-    document.querySelector("tone-player").bind(player);
-    document.querySelector("tone-play-toggle").bind(player);
-});*/
-
-/*const downloadButton = document.querySelector('button#download');
-downloadButton.addEventListener('click', () => {
-    const blob = new Blob(recordedBlobs, {type: 'video/webm'});
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = 'test.webm';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-    }, 100);
-});*/
-
-
-/*function handleDataAvailable(event) {
-    if (event.data && event.data.size > 0) {
-        recordedBlobs.push(event.data);
-    }
-}
-
-function startRecording() {
-    recordedBlobs = [];
-    let options = {mimeType: 'audio/webm;codecs=vp9'};
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        console.error(`${options.mimeType} is not Supported`);
-        errorMsgElement.innerHTML = `${options.mimeType} is not Supported`;
-        options = {mimeType: 'video/webm;codecs=vp8'};
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            console.error(`${options.mimeType} is not Supported`);
-            errorMsgElement.innerHTML = `${options.mimeType} is not Supported`;
-            options = {mimeType: 'video/webm'};
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                console.error(`${options.mimeType} is not Supported`);
-                errorMsgElement.innerHTML = `${options.mimeType} is not Supported`;
-                options = {mimeType: ''};
-            }
-        }
-    }
-
-    try {
-        mediaRecorder = new MediaRecorder(window.stream, options);
-    } catch (e) {
-        console.error('Exception while creating MediaRecorder:', e);
-        errorMsgElement.innerHTML = `Exception while creating MediaRecorder: ${JSON.stringify(e)}`;
-        return;
-    }
-
-    console.log('Created MediaRecorder', mediaRecorder, 'with options', options);
-    recordButton.textContent = 'Stop Recording';
-    playButton.disabled = true;
-    downloadButton.disabled = true;
-    mediaRecorder.onstop = (event) => {
-        console.log('Recorder stopped: ', event);
-    };
-    mediaRecorder.ondataavailable = handleDataAvailable;
-    mediaRecorder.start(10); // collect 10ms of data
-    console.log('MediaRecorder started', mediaRecorder);
-}
-
-function stopRecording() {
-    mediaRecorder.stop();
-    console.log('Recorded Blobs: ', recordedBlobs);
-}
-
-*/
-
-
-class Recorder extends React.Component {
+class Player extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
             isStarted: false,
+            isRecording: false,
+            hasRecording: false,
+            playing: false,
+            itemIndex: -1,
         }
-        this.mediaSource = new MediaSource();
-        this.mediaSource.addEventListener('sourceopen', event => {
-            console.log('MediaSource opened');
-            sourceBuffer = this.mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
-            console.log('Source buffer: ', sourceBuffer);
-        }, false);
+        this.tone = new Tone.Player({
+            "loop" : true
+        }).toMaster();
+        this.start()
     }
 
     async start() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: {exact: false}
-                },
-                video: { width: 1280, height: 720 }
+            this.stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: false // { width: 1280, height: 720 },
             });
-            console.log('getUserMedia() success:', stream);
+            console.log('getUserMedia() success:', this.stream);
             this.setState({ isStarted: true })
-            window.stream = stream;
-            this.preview.srcObject = stream;
+            // this.preview.srcObject = this.stream;
+
+            this.mediaRecorder = new MediaRecorder(this.stream)
+            this.mediaRecorder.ondataavailable = this.onRecordData.bind(this);
+            console.log('Created MediaRecorder', this.mediaRecorder);
         } catch (e) {
             console.error('start() failed:', e);
         }
     }
 
+    record() {
+        this.recordedBlobs = [];
+        this.mediaRecorder.start(10); // collect 10ms of data
+        this.setState({isRecording: true})
+    }
+
+    onRecordData(event) {
+        if (event.data && event.data.size > 0) {
+            this.recordedBlobs.push(event.data);
+        }
+    }
+
+    togglePlay() {
+        if (this.state.playing) {
+            this.tone.stop()
+        } else {
+            this.tone.start()
+        }
+        this.setState({playing: !this.state.playing})
+    }
+
+    stop() {
+        this.mediaRecorder.stop();
+        this.setState({isRecording: false, hasRecording: true})
+
+        const superBuffer = new Blob(this.recordedBlobs);
+        let url = window.URL.createObjectURL(superBuffer)
+
+        // Tone.js
+        this.tone.load(url, this.onLoaded.bind(this))
+        document.querySelector("tone-player").bind(this.tone);
+    }
+
+    _computeRMS(buffer, width){
+        const array = buffer.toArray(0)
+        const length = 64
+        const rmses = []
+        for (let i = 0; i < width; i++){
+            const offsetStart = Math.floor(Math.scale(i, 0, width, 0, array.length - length))
+            const offsetEnd = offsetStart + length
+            let sum = 0
+            for (let s = offsetStart; s < offsetEnd; s++){
+                sum += Math.pow(array[s], 2)
+            }
+            const rms = Math.sqrt(sum / length)
+            rmses[i] = rms
+        }
+        const max = Math.max(...rmses)
+        this._waveform = rmses.map(v => Math.scale(Math.pow(v, 0.8), 0, max, 0, 1))
+    }
+
+    onLoaded() {
+        try {
+            let {tone} = this
+            const buffer = tone.buffer
+            const canvas = document.getElementById('my-wav')
+            const {width, height} = canvas
+            const context = canvas.getContext('2d')
+            context.clearRect(0, 0, width, height)
+            this._computeRMS(buffer, width)
+
+            const loopStart = Math.scale(tone.loopStart, 0, buffer.duration, 0, width)
+            let loopEnd = Math.scale(tone.loopEnd, 0, buffer.duration, 0, width)
+            if (tone.loopEnd === 0) {
+                loopEnd = width
+            }
+            this.color = '#cff';
+            context.fillStyle = this.color
+            const lightened = tinycolor(this.color).setAlpha(0.2).toRgbString()
+            this._waveform.forEach((val, i) => {
+                const barHeight = val * height
+                const x = tone.reverse ? width - i : i
+                if (tone.loop) {
+                    context.fillStyle = loopStart > x || x > loopEnd ? lightened : this.color
+                }
+                context.fillRect(x, height / 2 - barHeight / 2, 1, barHeight)
+                context.fill()
+            })
+        } catch (error) {
+            console.error(error)
+        }
+    }
+
+    download() {
+        let blob = new Blob(this.recordedBlobs);
+        let url = window.URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'recording.webm';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }, 100);
+    }
+
+    loadNextItem() {
+        let itemIndex = Math.floor(random(0, this.props.trainItems.length))
+        console.log('itemIndex', itemIndex)
+        this.setState({itemIndex})
+    }
+
     render() {
+        let { isStarted, isRecording, hasRecording, playing, itemIndex } = this.state
         return (
             <div className="card my-5">
                 <h5 className="card-header">
-                    Recorder
+                    Wave player
                 </h5>
                 <div className="card-body">
-                    <video className="border border-secondary" playsinline autoPlay muted ref={preview => {this.preview = preview}}></video>
+                    <canvas id="my-wav" className="border border-primary" width="600" height="100" ref={wavCanvas => {this.wavCanvas = wavCanvas}}></canvas>
                 </div>
                 <div className="card-footer text-muted">
-                    <button className="btn btn-secondary" onClick={this.start.bind(this)}>Start</button>
+                    {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
+                    {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
+                    {hasRecording && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
+                    {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
+                    <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemIndex})</button>
                 </div>
             </div>
-
         )
     }
 
@@ -155,7 +170,7 @@ export default class App extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            trainItems: null
+            trainItems: []
         }
 
         axios.get('/api/train_list/')
@@ -174,7 +189,7 @@ export default class App extends React.Component {
             <div>
                 <h1>GentleTrainer</h1>
                 {trainItems ? <div className="alert alert-success">{trainItems.length} training items loaded.</div> : <div className="alert alert-secondary">Loading...</div>}
-                <Recorder />
+                <Player trainItems={trainItems} />
             </div>
         )
     }
