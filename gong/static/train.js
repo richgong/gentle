@@ -1,8 +1,4 @@
-console.log('Hello TensorFlow');
-/**
- * Get the car data reduced to just the variables we are interested
- * and cleaned of missing data.
- */
+/*console.log('Hello TensorFlow');
 async function getData() {
     const carsDataReq = await fetch('https://storage.googleapis.com/tfjs-tutorials/carsData.json');
     const carsData = await carsDataReq.json();
@@ -28,12 +24,6 @@ function createModel() {
     return model;
 }
 
-/**
- * Convert the input data to tensors that we can use for machine
- * learning. We will also do the important best practices of _shuffling_
- * the data and _normalizing_ the data
- * MPG on the y-axis.
- */
 function convertToTensor(data) {
     // Wrapping these calculations in a tidy will dispose any
     // intermediate tensors.
@@ -172,4 +162,4 @@ async function run() {
     testModel(model, data, tensorData);
 }
 
-document.addEventListener('DOMContentLoaded', run);
+document.addEventListener('DOMContentLoaded', run);//*/

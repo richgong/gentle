@@ -2,6 +2,7 @@ import React from 'react'
 import axios from 'axios'
 import tinycolor from 'tinycolor2'
 import { random } from './utils'
+import { AI } from './AI'
 
 
 class Player extends React.Component {
@@ -17,7 +18,7 @@ class Player extends React.Component {
         }
         this.recordedBlobs = [];
         this.tone = new Tone.Player({
-            "loop" : true
+            "loop" : false
         }).toMaster();
         this.start()
         document.querySelector("tone-player").bind(this.tone);
@@ -101,7 +102,7 @@ class Player extends React.Component {
             this.togglePlay(null, false)
 
             const buffer = tone.buffer
-            const canvas = document.getElementById('my-wav')
+            const canvas = this.wavCanvas
             const {width, height} = canvas
             const context = canvas.getContext('2d')
             context.clearRect(0, 0, width, height)
@@ -191,25 +192,29 @@ export default class App extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            trainItems: []
+            trainItems: [],
+            loading: true,
         }
 
         axios.get('/api/train_list/')
             .then(response => {
                 console.log("Got train list:", response.data)
                 this.setState({
-                    trainItems: response.data.items
+                    trainItems: response.data.items,
+                    loading: false,
                 })
             })
             .catch(console.error)
+
+        this.ai = new AI()
     }
 
     render() {
-        let {trainItems} = this.state
+        let {trainItems, loading} = this.state
         return (
             <div>
                 <h1>GentleTrainer</h1>
-                {trainItems ? <div className="alert alert-success">{trainItems.length} training items loaded.</div> : <div className="alert alert-secondary">Loading...</div>}
+                {loading ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
                 <Player trainItems={trainItems} />
             </div>
         )

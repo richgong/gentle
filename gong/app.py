@@ -5,6 +5,7 @@ import gentle
 import multiprocessing
 import os
 import glob
+import json
 
 
 app = Flask(__name__)
@@ -40,14 +41,13 @@ print("TRAIN_PATH:", TRAIN_PATH)
 
 
 def run_gentle(key='103/1241/103_1241_000000_000001'):
-    disfluencies = set(['uh', 'um'])
-
-    def on_progress(p):
-        for k,v in p.items():
-            logging.debug("%s: %s" % (k, v))
-
-    text_file = f'{TRAIN_PATH}/{key}.original.txt'
+    text_file = f'{TRAIN_PATH}/{key}.normalized.txt'
     audio_file = f'{TRAIN_PATH}/{key}.wav'
+    json_file = f'{TRAIN_PATH}/{key}.json'
+
+    if os.path.isfile(json_file):
+        with open(json_file) as r:
+            return json.loads(r.read())
 
     with open(text_file, encoding="utf-8") as fh:
         transcript = fh.read()
@@ -55,16 +55,23 @@ def run_gentle(key='103/1241/103_1241_000000_000001'):
     resources = gentle.Resources()
     logging.info("converting audio to 8K sampled wav")
 
+    def on_progress(p):
+        return
+        # for k,v in p.items():
+        #    logging.debug("%s: %s" % (k, v))
     with gentle.resampled(audio_file) as wavfile:
-        logging.info("starting alignment")
+        # logging.info("starting alignment")
         aligner = gentle.ForcedAligner(resources,
                                        transcript,
                                        nthreads=multiprocessing.cpu_count(),
                                        disfluency=False,  # include disfluencies (uh, um) in alignment
                                        conservative=False,
-                                       disfluencies=disfluencies)
+                                       disfluencies=set(['uh', 'um']))
         result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
-        return result.to_dict()
+        result_dict = result.to_dict()
+        with open(json_file, 'w') as f:
+            f.write(json.dumps(result_dict, indent=2))
+        return result_dict
 
 
 @app.route('/api/train_list/')
