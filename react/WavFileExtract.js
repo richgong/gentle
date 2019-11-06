@@ -1,8 +1,10 @@
-import {AudioUtils} from './utils/audio_utils';
-import {Params} from './utils/types';
-import {nextPowerOfTwo} from './utils/audio_utils';
+import {AudioUtils, nextPowerOfTwo} from './audioUtils';
 
-export class WavFileFeatureExtractor {
+/**
+ * * See BrowserFftFeatureExtractor:
+ * https://github.com/tensorflow/tfjs-models/blob/master/speech-commands/src/browser_fft_extractor.ts#L88
+ */
+export class WavFileExtract {
     // Target sample rate.
     targetSr = 16000;
     // How long the buffer is.

@@ -1,5 +1,5 @@
 import React from 'react'
-import {SpectroExtract} from './SpectroExtract'
+import {MicWavExtract} from './MicWavExtract'
 
 
 const NUM_FRAMES = 3; // One frame is ~23ms of audio.
@@ -18,10 +18,9 @@ function normalize(x) {
     return x.map(x => (x - mean) / std);
 }
 
-export class AI extends React.Component {
+export class MicAI extends React.Component {
     constructor(props) {
         super(props)
-        //this.recognizer = speechCommands.create('BROWSER_FFT');
         this.examples = [];
         this.buildModel()
     }
@@ -32,7 +31,7 @@ export class AI extends React.Component {
         // therefore) numFramesPerSpectrogram: this.nonBatchInputShape[0] = 43
         // therefore) columnTruncateLength: this.nonBatchInputShape[1] = 232
 
-        this.extract = new SpectroExtract({
+        this.extract = new MicWavExtract({
             spectrogramCallback: async (x, timeData) => {
                 let data = await x.data()
                 // based on hack above, we know frameSize = this.nonBatchInputShape[1] = 232

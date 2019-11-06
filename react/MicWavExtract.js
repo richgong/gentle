@@ -6,7 +6,7 @@
  * See BrowserFftFeatureExtractor:
  * https://github.com/tensorflow/tfjs-models/blob/master/speech-commands/src/browser_fft_extractor.ts#L88
  */
-export class SpectroExtract {
+export class MicWavExtract {
     constructor({
                     spectrogramCallback,
                     numFramesPerSpectrogram, // > 0
@@ -69,7 +69,7 @@ export class SpectroExtract {
 
     async start() {
         if (this.isListening()) {
-            throw new Error('Cannot start already-started SpectroExtract');
+            throw new Error('Cannot start already-started MicWavExtract');
         }
 
         this.stream = await navigator.mediaDevices.getUserMedia({
