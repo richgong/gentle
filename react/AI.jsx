@@ -1,3 +1,7 @@
+import React from 'react'
+import {SpectroExtract} from './SpectroExtract'
+
+
 const NUM_FRAMES = 3; // One frame is ~23ms of audio.
 const INPUT_SHAPE = [NUM_FRAMES, 232, 1];
 
@@ -14,11 +18,45 @@ function normalize(x) {
     return x.map(x => (x - mean) / std);
 }
 
-export class AI {
-    constructor() {
-        this.recognizer = speechCommands.create('BROWSER_FFT');
+export class AI extends React.Component {
+    constructor(props) {
+        super(props)
+        //this.recognizer = speechCommands.create('BROWSER_FFT');
         this.examples = [];
         this.buildModel()
+    }
+
+    startExtract(callback) {
+        // nonBatchInputShape is set here: https://github.com/tensorflow/tfjs-models/blob/4cac379be402e9e79cc6ea21160b8baad107c194/speech-commands/src/browser_fft_recognizer.ts#L649
+        // figured out value via: await this.recognizer.ensureModelLoaded(); console.warn("YOOOOOO", this.recognizer.nonBatchInputShape); => [43, 232, 1]
+        // therefore) numFramesPerSpectrogram: this.nonBatchInputShape[0] = 43
+        // therefore) columnTruncateLength: this.nonBatchInputShape[1] = 232
+
+        this.extract = new SpectroExtract({
+            spectrogramCallback: async (x, timeData) => {
+                let data = await x.data()
+                // based on hack above, we know frameSize = this.nonBatchInputShape[1] = 232
+                let frameSize = 232
+                callback({data, frameSize})
+                // Trigger suppression via "return true" -- due to recognized word
+                return true;
+            },
+            sampleRateHz: 44100,
+            numFramesPerSpectrogram: 43,
+            columnTruncateLength: 232, // frameSize
+            suppressionTimeMillis: 0,
+            overlapFactor: 0.999,
+        })
+        this.extract.start()
+    }
+
+    isExtracting() {
+        return this.extract != null
+    }
+
+    stopExtract() {
+        this.extract.stop()
+        this.extract = null
     }
 
     buildModel() {
@@ -41,22 +79,18 @@ export class AI {
     }
 
     collect(label) {
-        if (this.recognizer.isListening()) {
-            return this.recognizer.stopListening();
+        if (this.isExtracting()) {
+            return this.stopExtract();
         }
         if (label == null) {
             return;
         }
-        this.recognizer.listen(async ({spectrogram: {frameSize, data}}) => {
+        this.startExtract(({frameSize, data}) => {
             let vals = normalize(data.subarray(-frameSize * NUM_FRAMES));
             console.log(`Collected data for ${label} (frameSize=${frameSize}) (length=${vals.length}):`, vals)
             this.examples.push({vals, label});
             console.log(`${this.examples.length} examples collected`);
-        }, {
-            overlapFactor: 0.999,
-            includeSpectrogram: true,
-            invokeCallbackOnNoiseAndUnknown: true
-        });
+        })
     }
 
     async train() {
@@ -77,22 +111,28 @@ export class AI {
     }
 
     async predict() {
-        if (this.recognizer.isListening()) {
-            this.recognizer.stopListening();
-            return;
+        if (this.isExtracting()) {
+            return this.stopExtract();
         }
-        this.recognizer.listen(async ({spectrogram: {frameSize, data}}) => {
+        this.startExtract(async ({frameSize, data}) => {
             const vals = normalize(data.subarray(-frameSize * NUM_FRAMES));
             const input = tf.tensor(vals, [1, ...INPUT_SHAPE]);
             const probs = this.model.predict(input);
             const predLabel = probs.argMax(1);
             const label = (await predLabel.data())[0];
             tf.dispose([input, probs, predLabel]); // To clean up GPU memory it's important for us to manually call tf.dispose() on output Tensors
-        }, {
-            overlapFactor: 0.999,
-            includeSpectrogram: true,
-            invokeCallbackOnNoiseAndUnknown: true
-        });
+            console.log(label)
+        })
+    }
+
+    render() {
+        return (<div>
+            <button className="btn btn-warning" onMouseDown={() => this.collect(0)} onMouseUp={() => this.collect(null)}>Left</button>
+            <button className="btn btn-warning" onMouseDown={() => this.collect(1)} onMouseUp={() => this.collect(null)}>Right</button>
+            <button className="btn btn-warning" onMouseDown={() => this.collect(2)} onMouseUp={() => this.collect(null)}>Noise</button>
+            <button className="btn btn-danger" onClick={this.train.bind(this)}>Train</button>
+            <button className="btn btn-success" onClick={this.predict.bind(this)}>Listen</button>
+        </div>)
     }
 
 }

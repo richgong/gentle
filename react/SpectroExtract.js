@@ -63,8 +63,12 @@ export class SpectroExtract {
         this.includeRawAudio = includeRawAudio;
     }
 
+    isListening() {
+        return this.frameIntervalTask != null
+    }
+
     async start() {
-        if (this.frameIntervalTask != null) {
+        if (this.isListening()) {
             throw new Error('Cannot start already-started SpectroExtract');
         }
 
@@ -148,13 +152,6 @@ export class SpectroExtract {
         if (this.stream != null && this.stream.getTracks().length > 0) {
             this.stream.getTracks()[0].stop();
         }
-    }
-
-    getFeatures() {
-        throw new Error(
-            'getFeatures() is not implemented for ' +
-            'BrowserFftFeatureExtractor. Use the spectrogramCallback ' +
-            'field of the constructor config instead.');
     }
 }
 

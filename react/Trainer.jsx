@@ -2,7 +2,7 @@ import React from 'react'
 import axios from 'axios'
 import tinycolor from 'tinycolor2'
 import { random } from './utils'
-import { AI } from './AI'
+import { AI } from './AI.jsx'
 
 
 class Player extends React.Component {
@@ -205,8 +205,6 @@ export default class App extends React.Component {
                 })
             })
             .catch(console.error)
-
-        this.ai = new AI()
     }
 
     render() {
@@ -215,6 +213,7 @@ export default class App extends React.Component {
             <div>
                 <h1>GentleTrainer</h1>
                 {loading ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
+                <AI />
                 <Player trainItems={trainItems} />
             </div>
         )
