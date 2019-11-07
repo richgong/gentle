@@ -33,10 +33,11 @@ module.exports = {
             },
         ]
     },
-    /*externals: {
-      'react': 'React',
-      'react-dom': 'ReactDOM'
-    },*/
+    externals: {
+      //'react': 'React',
+      //'react-dom': 'ReactDOM',
+      'fs': 'BrowserFS'
+    },
     resolve: {
         modules: [
             path.resolve(__dirname, 'node_modules')

@@ -17,6 +17,8 @@
     "@babel/runtime": "^7.6.3",
     "axios": "^0.19.0",
     "babel-loader": "^8.0.6",
+    "dct": "^0.1.0",
+    "kissfft-js": "^0.1.8",
     "prop-types": "^15.7.2",
     "react": "^16.11.0",
     "react-dom": "^16.11.0",

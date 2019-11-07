@@ -1,3 +1,4 @@
+import React from 'react'
 import {WavFileExtract} from './WavFileExtract';
 
 class Dataset {
@@ -52,7 +53,7 @@ export class FileAI extends React.Component {
      */
     constructor(props) {
         super(props)
-        this.labels = []
+        this.labels = [0, 1, 2]
         this.dataset = new Dataset(this.labels.length)
         this.featureExtractor = new WavFileExtract()
         this.featureExtractor.config({
@@ -187,14 +188,6 @@ export class FileAI extends React.Component {
     }
 
     /**
-     * Save the model to the specified directory.
-     * @param dir Directory to store the model.
-     */
-    save(dir) {
-        return this.model.save('file://' + dir);
-    }
-
-    /**
      * Return the size of the dataset in string.
      */
     size() {
@@ -233,5 +226,11 @@ export class FileAI extends React.Component {
         const shape = [batch, times, freqs, 1];
         // this.normalizeInPlace(data, 0, 1);
         return tf.tensor4d(data, shape);
+    }
+
+    render() {
+        return (<div className="my-4">
+            <h3>FileAI</h3>
+        </div>)
     }
 }

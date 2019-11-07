@@ -125,7 +125,8 @@ export class MicAI extends React.Component {
     }
 
     render() {
-        return (<div>
+        return (<div className="my-4">
+            <h3>MicAI</h3>
             <button className="btn btn-warning" onMouseDown={() => this.collect(0)} onMouseUp={() => this.collect(null)}>Left</button>
             <button className="btn btn-warning" onMouseDown={() => this.collect(1)} onMouseUp={() => this.collect(null)}>Right</button>
             <button className="btn btn-warning" onMouseDown={() => this.collect(2)} onMouseUp={() => this.collect(null)}>Noise</button>
