@@ -3,7 +3,8 @@ import {MicWavExtract} from './MicWavExtract'
 
 
 const NUM_FRAMES = 3; // One frame is ~23ms of audio.
-const INPUT_SHAPE = [NUM_FRAMES, 232, 1];
+const FRAME_SIZE = 232;
+const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
 
 function flatten(tensors) {
     const size = tensors[0].length;
@@ -28,21 +29,21 @@ export class MicAI extends React.Component {
     startExtract(callback) {
         // nonBatchInputShape is set here: https://github.com/tensorflow/tfjs-models/blob/4cac379be402e9e79cc6ea21160b8baad107c194/speech-commands/src/browser_fft_recognizer.ts#L649
         // figured out value via: await this.recognizer.ensureModelLoaded(); console.warn("YOOOOOO", this.recognizer.nonBatchInputShape); => [43, 232, 1]
-        // therefore) numFramesPerSpectrogram: this.nonBatchInputShape[0] = 43
-        // therefore) columnTruncateLength: this.nonBatchInputShape[1] = 232
+        // therefore) numFramesPerSpectrogram: this.nonBatchInputShape[0] = NUM_FRAMES
+        // therefore) columnTruncateLength: this.nonBatchInputShape[1] = FRAME_SIZE
 
         this.extract = new MicWavExtract({
             spectrogramCallback: async (x, timeData) => {
                 let data = await x.data()
-                // based on hack above, we know frameSize = this.nonBatchInputShape[1] = 232
-                let frameSize = 232
+                // based on hack above, we know frameSize = this.nonBatchInputShape[1] = FRAME_SIZE
+                let frameSize = FRAME_SIZE
                 callback({data, frameSize})
                 // Trigger suppression via "return true" -- due to recognized word
                 return true;
             },
             sampleRateHz: 44100,
-            numFramesPerSpectrogram: 43,
-            columnTruncateLength: 232, // frameSize
+            numFramesPerSpectrogram: NUM_FRAMES,
+            columnTruncateLength: FRAME_SIZE, // frameSize
             suppressionTimeMillis: 0,
             overlapFactor: 0.999,
         })
