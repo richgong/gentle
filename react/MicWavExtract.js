@@ -25,21 +25,21 @@ export class MicWavExtract {
         this.stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: false
-        });
+        })
 
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        if (this.audioContext.sampleRate !== this.sampleRate) {
-            console.warn(`Mismatch in sampling rate: Expected: ${this.sampleRate}; Actual: ${this.audioContext.sampleRate}`);
-        }
-        const streamSource = this.audioContext.createMediaStreamSource(this.stream);
-        this.analyser = this.audioContext.createAnalyser();
-        this.analyser.fftSize = this.fftSize * 2;
-        this.analyser.smoothingTimeConstant = 0.0;
-        streamSource.connect(this.analyser);
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)()
+        if (this.audioContext.sampleRate !== this.sampleRate)
+            console.warn(`Mismatch in sampling rate: Expected: ${this.sampleRate}; Actual: ${this.audioContext.sampleRate}`)
 
-        this.freqDataQueue = [];
+        const streamSource = this.audioContext.createMediaStreamSource(this.stream)
+        this.analyser = this.audioContext.createAnalyser()
+        this.analyser.fftSize = this.fftSize * 2
+        this.analyser.smoothingTimeConstant = 0.0
+        streamSource.connect(this.analyser)
+
+        this.freqDataQueue = []
         this.freqData = new Float32Array(this.fftSize);
-        this.onAudioFrameTimer = setInterval(this.onAudioFrame.bind(this), this.fftSize / this.sampleRate * 1e3);
+        this.onAudioFrameTimer = setInterval(this.onAudioFrame.bind(this), this.fftSize / this.sampleRate * 1000)
     }
 
     async onAudioFrame() {

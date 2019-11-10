@@ -269,12 +269,13 @@ export default class App extends React.Component {
                 <h1>GentleTrainer</h1>
                 {loadingLibrary ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{libraryItems.length} training items loaded.</div>}
                 <MicAI />
-                <div className="card my-5">
+                <h3>FileAI</h3>
+                <div className="card">
                     <h5 className="card-header">
                         {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
                     </h5>
                     <div className="card-body">
-
+                        Wave:
                         <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
                         Spectrogram:
                         <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
