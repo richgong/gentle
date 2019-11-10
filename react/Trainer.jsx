@@ -20,6 +20,7 @@ export default class App extends React.Component {
             hasRecording: false,
             playing: false,
             itemKey: null,
+            item: null,
             loading: false,
         }
         this.recordedBlobs = [];
@@ -97,7 +98,7 @@ export default class App extends React.Component {
     record() {
         this.recordedBlobs = [];
         this.mediaRecorder.start(10); // collect 10ms of data
-        this.setState({isRecording: true, itemKey: null})
+        this.setState({isRecording: true, itemKey: null, item: null})
     }
 
     onRecordData(event) {
@@ -223,8 +224,8 @@ export default class App extends React.Component {
                 axios.get(`/api/train_list/${itemKey}`)
                     .then(response => {
                         let {item} = response.data
-                        console.log("Got train info:", itemKey, buffer.duration, item)
-                        this.setState({loading: false})
+                        console.log("GOT TRAIN ITEM:", buffer.duration, item)
+                        this.setState({loading: false, item})
                     })
                     .catch(console.error)
             }
@@ -257,11 +258,45 @@ export default class App extends React.Component {
         this.loadUrl(`/static/LibriTTS/train-clean-100/${itemKey}.wav`)
     }
 
+    renderItem() {
+        let {item} = this.state
+        if (!item)
+            return null
+        let {transcript, words} = item
+        return (
+            <div className="my-2">
+                <div className="alert alert-info">{transcript}</div>
+                <table className="table">
+                    <tbody>
+                    {words.map((word, i) => {
+                        let totalDuration = 0.
+                        word.phones.forEach(x => {
+                            totalDuration += x.duration
+                        })
+
+                        return <tr key={i}>
+                            <td>
+                                <div><b>{word.alignedWord}</b></div>
+                                <div>{word.start} to {word.end} (duration = {totalDuration})</div>
+                            </td>
+                            <td>
+                                {word.phones.map((phone, j) => (
+                                    <div>{phone.phone} / {phone.duration}</div>
+                                ))}
+                            </td>
+                        </tr>
+                    })}
+                    </tbody>
+                </table>
+            </div>
+        )
+
+    }
+
     render() {
         let {libraryItems, loadingLibrary, isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
             <div>
-                <h1>GentleTrainer</h1>
                 {loadingLibrary ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{libraryItems.length} training items loaded.</div>}
                 <MicAI />
                 <h3>FileAI</h3>
@@ -271,16 +306,17 @@ export default class App extends React.Component {
                     </h5>
                     <div className="card-body">
                         Wave:
-                        <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
+                        <canvas className="border border-primary d-block mb-2" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
                         Spectrogram:
-                        <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
+                        <canvas className="border border-primary d-block mb-2" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
+                        {this.renderItem()}
                     </div>
                     <div className="card-footer text-muted">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
                         {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
                         {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
                         {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                        <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemKey})</button>
+                        {!loadingLibrary && <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (current: {itemKey || 'N/A'})</button>}
                     </div>
                 </div>
             </div>
