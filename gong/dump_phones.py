@@ -13,9 +13,8 @@ if __name__ == '__main__':
         for line in f.read().split('\n'):
             if not line:
                 continue
-            print("Phone:", line)
-            d[line] = c
             c += 1
-    with open('gong/static/phones.json', 'w') as f:
+            d[line] = c
+            print("Phone:", line, c)
+    with open('react/phones.json', 'w') as f:
         f.write(json.dumps(d, indent=2))
-

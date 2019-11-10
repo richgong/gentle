@@ -4,6 +4,7 @@ import tinycolor from 'tinycolor2'
 import { random, flatten } from './utils'
 import { MicAI } from './MicAI.jsx'
 import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
+import PHONE_MAP from './phones.json'
 
 export const NUM_FRAMES = 3
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
@@ -199,7 +200,7 @@ export default class App extends React.Component {
             for (let j = 0; j < slice.length; ++j) {
                 let v = slice[j]
                 let c = Math.floor(Math.scale(v, min, max, 0, 1) * 255.0)
-                context.fillStyle = `rgb(${c}, ${c}, ${c})`
+                context.fillStyle = `rgb(0, ${c}, ${c})`
                 context.fillRect(i * incWidth, height - (j + 1) * incHeight, incWidth, incHeight)
             }
         }
@@ -223,6 +224,7 @@ export default class App extends React.Component {
             if (itemKey) {
                 axios.get(`/api/train_list/${itemKey}`)
                     .then(response => {
+                        console.warn('PHONE_MAP:', PHONE_MAP)
                         let {item} = response.data
                         console.log("GOT TRAIN ITEM:", buffer.duration, item)
                         this.setState({loading: false, item})
@@ -281,7 +283,7 @@ export default class App extends React.Component {
                             </td>
                             <td>
                                 {word.phones.map((phone, j) => (
-                                    <div>{phone.phone} / {phone.duration}</div>
+                                    <div key={j}>{phone.phone} / {phone.duration}</div>
                                 ))}
                             </td>
                         </tr>
@@ -297,26 +299,24 @@ export default class App extends React.Component {
         let {libraryItems, loadingLibrary, isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
             <div>
-                {loadingLibrary ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{libraryItems.length} training items loaded.</div>}
                 <MicAI />
                 <h3>FileAI</h3>
                 <div className="card">
                     <h5 className="card-header">
-                        {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
-                    </h5>
-                    <div className="card-body">
-                        Wave:
-                        <canvas className="border border-primary d-block mb-2" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
-                        Spectrogram:
-                        <canvas className="border border-primary d-block mb-2" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
-                        {this.renderItem()}
-                    </div>
-                    <div className="card-footer text-muted">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
                         {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
                         {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
                         {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                        {!loadingLibrary && <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (current: {itemKey || 'N/A'})</button>}
+                        <button disabled={loadingLibrary || loading} className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>
+                            Load next (current: {itemKey || 'N/A'}) ({libraryItems.length} items)
+                        </button>
+                    </h5>
+                    <div className="card-body">
+                        Waveform:
+                        <canvas className="border border-info d-block mb-2" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
+                        Spectrogram:
+                        <canvas className="border border-info d-block mb-2" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
+                        {this.renderItem()}
                     </div>
                 </div>
             </div>
