@@ -1,17 +1,11 @@
 import React from 'react'
 import {MicWavExtract} from './MicWavExtract'
+import {flatten} from './utils'
 
 
 export const NUM_FRAMES = 3; // One frame is ~23ms of audio.
 export const FRAME_SIZE = 232;
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
-
-export function flatten(tensors) {
-    const size = tensors[0].length;
-    const result = new Float32Array(tensors.length * size);
-    tensors.forEach((arr, i) => result.set(arr, i * size));
-    return result;
-}
 
 export function normalize(x) {
     const mean = -100;

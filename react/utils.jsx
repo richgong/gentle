@@ -27,3 +27,10 @@ export function random(min, max) {
 export function clamp(v, min, max) {
     return v <= min ? min : v >= max ? max : v;
 }
+
+export function flatten(tensors) {
+    const size = tensors[0].length;
+    const result = new Float32Array(tensors.length * size);
+    tensors.forEach((arr, i) => result.set(arr, i * size));
+    return result;
+}

@@ -1,13 +1,12 @@
 import React from 'react'
 import axios from 'axios'
 import tinycolor from 'tinycolor2'
-import { random } from './utils'
+import { random, flatten } from './utils'
 import { MicAI } from './MicAI.jsx'
-import {ExtractFFT} from "./ExtractFFT";
+import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
 
-export const NUM_FRAMES = 3;
-export const FRAME_SIZE = 1024;
-export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
+export const NUM_FRAMES = 3
+export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
 
 
 export default class App extends React.Component {
@@ -214,16 +213,17 @@ export default class App extends React.Component {
             let array = buffer.toArray(0)
             this.drawWave(tone, buffer, array)
 
-            let slices = this.extractFFT.start(array)
-            console.log("extractFFT:", buffer._buffer, array.length, "=>", slices.length)
-            this.drawFft(tone, buffer, slices)
+            let fftSlices = this.extractFFT.extract(array)
+            console.log("extractFFT:", buffer._buffer, array.length, "=>", fftSlices.length)
+            this.drawFft(tone, buffer, fftSlices)
 
             this.setState({hasRecording: true})
             let {itemKey} = this.state
             if (itemKey) {
                 axios.get(`/api/train_list/${itemKey}`)
                     .then(response => {
-                        console.log("Got train info:", itemKey, buffer.duration, response.data)
+                        let {item} = response.data
+                        console.log("Got train info:", itemKey, buffer.duration, item)
                         this.setState({loading: false})
                     })
                     .catch(console.error)
