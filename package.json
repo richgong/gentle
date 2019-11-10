@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_ENV=development webpack-dev-server --no-info --port 3000",
+    "hot": "node gong/hotload.js",
     "build": "NODE_ENV=production webpack -p"
   },
   "dependencies": {
