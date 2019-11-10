@@ -14,18 +14,22 @@
 {% block content %}
     <div class="container my-3">
         <div id="app">Loading...</div>
+        <div id="waveform"></div>
+        <div id="spectrogram"></div>
         <tone-content>
             <tone-player></tone-player>
         </tone-content>
     </div>
 
 
-    <script src="https://unpkg.com/browserfs@2.0.0/dist/browserfs.min.js"></script>
-    <script src="https://unpkg.com/@tensorflow/tfjs"></script>
+    <script src="//unpkg.com/browserfs@2.0.0/dist/browserfs.min.js"></script>
+    <script src="//unpkg.com/@tensorflow/tfjs"></script>
     <script src="//cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
-    <script src="https://unpkg.com/@tensorflow-models/speech-commands"></script>
+    <script src="//unpkg.com/@tensorflow-models/speech-commands"></script>
     <script src="//unpkg.com/tone"></script>
     <script src="//unpkg.com/@tonejs/ui"></script>
+    <script src="//unpkg.com/wavesurfer.js@3.2.0/dist/wavesurfer.js"></script>
+    <script src="//unpkg.com/wavesurfer.js@3.2.0/dist/plugin/wavesurfer.spectrogram.min.js"></script>
     <script src="/static/train.js?v={{ get_time() }}"></script>
 
     {{ 'loadTrainer.js'|load_js }}

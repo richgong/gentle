@@ -23,6 +23,19 @@ class Player extends React.Component {
         }).toMaster();
         this.start()
         document.querySelector("tone-player").bind(this.tone);
+        this.wavesurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: 'violet',
+            progressColor: 'purple',
+            loaderColor: 'purple',
+            cursorColor: 'navy',
+            plugins: [
+                WaveSurfer.spectrogram.create({
+                    container: '#spectrogram',
+                    labels: true
+                })
+            ]
+        })
     }
 
     async start() {
@@ -77,6 +90,7 @@ class Player extends React.Component {
 
     loadUrl(url) {
         this.tone.load(url, this.onLoaded.bind(this));
+        this.wavesurfer.load(url)
     }
 
     _computeRMS(buffer, width){
