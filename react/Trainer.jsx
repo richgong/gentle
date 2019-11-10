@@ -10,11 +10,12 @@ function clamp(num, min, max) {
 }
 
 
-
-class Player extends React.Component {
+export default class App extends React.Component {
     constructor(props) {
-        super(props);
+        super(props)
         this.state = {
+            trainItems: [],
+            loadingTrainItems: true,
             isStarted: false,
             isRecording: false,
             hasRecording: false,
@@ -42,6 +43,16 @@ class Player extends React.Component {
             ]
         })
         this.extractFFT = new ExtractFFT()
+
+        axios.get('/api/train_list/')
+            .then(response => {
+                console.log("Got train list:", response.data)
+                this.setState({
+                    trainItems: response.data.items,
+                    loadingTrainItems: false,
+                })
+            })
+            .catch(console.error)
     }
 
     async start() {
@@ -65,7 +76,7 @@ class Player extends React.Component {
     record() {
         this.recordedBlobs = [];
         this.mediaRecorder.start(10); // collect 10ms of data
-        this.setState({isRecording: true})
+        this.setState({isRecording: true, itemKey: null})
     }
 
     onRecordData(event) {
@@ -150,8 +161,8 @@ class Player extends React.Component {
         if (!slices.length)
             return
 
-        console.warn("FFT question:", buffer._buffer, array);
-        console.warn("FFT answer:", slices)
+        console.log("FFT question:", buffer._buffer, array.length);
+        console.log("FFT answer slices:", slices.length)
 
         let incWidth = width / slices.length
         let incHeight = height / slices[0].length
@@ -166,7 +177,7 @@ class Player extends React.Component {
             }
         }
 
-        console.warn("Range:", min, max, incWidth, incHeight)
+        console.log("Range:", min, max, incWidth, incHeight)
 
         for (let i = 0; i < slices.length; ++i) {
             let slice = slices[i]
@@ -191,15 +202,17 @@ class Player extends React.Component {
 
             this.setState({hasRecording: true})
             let {itemKey} = this.state
-            axios.get(`/api/train_list/${itemKey}`)
-                .then(response => {
-                    console.log("Got train info:", itemKey, buffer.duration, response.data)
-                    /*this.setState({
-                        trainItems: response.data.items
-                    })*/
-                    this.setState({loading: false})
-                })
-                .catch(console.error)
+            if (itemKey) {
+                axios.get(`/api/train_list/${itemKey}`)
+                    .then(response => {
+                        console.log("Got train info:", itemKey, buffer.duration, response.data)
+                        /*this.setState({
+                            trainItems: response.data.items
+                        })*/
+                        this.setState({loading: false})
+                    })
+                    .catch(console.error)
+            }
         } catch (error) {
             console.error(error)
         }
@@ -221,25 +234,30 @@ class Player extends React.Component {
     }
 
     loadNextItem() {
-        let itemIndex = Math.floor(random(0, this.props.trainItems.length))
-        let itemKey = this.props.trainItems[itemIndex]
+        let { trainItems } = this.state
+        let itemIndex = Math.floor(random(0, trainItems.length))
+        let itemKey = trainItems[itemIndex]
         console.log('next itemKey', itemIndex, itemKey)
         this.setState({itemKey, loading: true})
         this.loadUrl(`/static/LibriTTS/train-clean-100/${itemKey}.wav`)
     }
 
     render() {
-        let { isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
+        let {trainItems, loadingTrainItems, isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
             <div>
+                <h1>GentleTrainer</h1>
+                {loadingTrainItems ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
                 <MicAI />
                 <div className="card my-5">
                     <h5 className="card-header">
                         {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
                     </h5>
                     <div className="card-body">
-                        <canvas className="border border-primary" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
-                        <canvas className="border border-primary" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
+
+                        <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
+                        Spectrogram:
+                        <canvas className="border border-primary d-block" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
                     </div>
                     <div className="card-footer text-muted">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
@@ -249,39 +267,6 @@ class Player extends React.Component {
                         <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemKey})</button>
                     </div>
                 </div>
-            </div>
-        )
-    }
-
-}
-
-
-export default class App extends React.Component {
-    constructor(props) {
-        super(props)
-        this.state = {
-            trainItems: [],
-            loading: true,
-        }
-
-        axios.get('/api/train_list/')
-            .then(response => {
-                console.log("Got train list:", response.data)
-                this.setState({
-                    trainItems: response.data.items,
-                    loading: false,
-                })
-            })
-            .catch(console.error)
-    }
-
-    render() {
-        let {trainItems, loading} = this.state
-        return (
-            <div>
-                <h1>GentleTrainer</h1>
-                {loading ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
-                <Player trainItems={trainItems} />
             </div>
         )
     }
