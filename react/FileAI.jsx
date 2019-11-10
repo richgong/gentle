@@ -1,5 +1,6 @@
 import React from 'react'
 import {WavFileExtract} from './WavFileExtract';
+import {NUM_FRAMES, FRAME_SIZE, INPUT_SHAPE} from './MicAI'
 
 class Dataset {
     xs
@@ -55,46 +56,26 @@ export class FileAI extends React.Component {
         super(props)
         this.labels = [0, 1, 2]
         this.dataset = new Dataset(this.labels.length)
-        this.featureExtractor = new WavFileExtract()
-        this.featureExtractor.config({
-            melCount: 40,
-            bufferLength: 480,
-            hopLength: 160,
-            targetSr: 16000,
-            isMfccEnabled: true,
-            duration: 1.0
-        })
-        this.model = this.createModel([98, 40, 1])
+        this.extractor = new WavFileExtract()
     }
 
-    createModel(inputShape) {
-        const model = tf.sequential();
-        model.add(tf.layers.conv2d(
-            {filters: 8, kernelSize: [4, 2], activation: 'relu', inputShape}));
-        model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
-        model.add(tf.layers.conv2d(
-            {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
-        model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
-        model.add(tf.layers.conv2d(
-            {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
-        model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
-        model.add(tf.layers.conv2d(
-            {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
-        model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [1, 2]}));
-        model.add(tf.layers.flatten({}));
-        model.add(tf.layers.dropout({rate: 0.25}));
-        model.add(tf.layers.dense({units: 2000, activation: 'relu'}));
-        model.add(tf.layers.dropout({rate: 0.5}));
-        model.add(
-            tf.layers.dense({units: this.labels.length, activation: 'softmax'}));
-
-        model.compile({
+    createModel() {
+        this.model = tf.sequential();
+        this.model.add(tf.layers.depthwiseConv2d({
+            depthMultiplier: 8,
+            kernelSize: [NUM_FRAMES, 3],
+            activation: 'relu',
+            inputShape: INPUT_SHAPE
+        }));
+        this.model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+        this.model.add(tf.layers.flatten());
+        this.model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+        const optimizer = tf.train.adam(0.01);
+        this.model.compile({
+            optimizer,
             loss: 'categoricalCrossentropy',
-            optimizer: tf.train.sgd(0.01),
             metrics: ['accuracy']
         });
-        model.summary();
-        return model;
     }
 
     /**
@@ -168,7 +149,7 @@ export class FileAI extends React.Component {
 
     decode(filename) {
         const result = wav.decode(fs.readFileSync(filename));
-        return this.featureExtractor.start(result.channelData[0]);
+        return this.extractor.start(result.channelData[0]);
     }*/
 
     /**
@@ -185,15 +166,6 @@ export class FileAI extends React.Component {
             validationSplit: 0.1,
             callbacks: trainCallback
         });
-    }
-
-    /**
-     * Return the size of the dataset in string.
-     */
-    size() {
-        return this.dataset.xs ?
-            `xs: ${this.dataset.xs.shape} ys: ${this.dataset.ys.shape}` :
-            '0';
     }
 
     splitSpecs(spec) {

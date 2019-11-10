@@ -2,9 +2,9 @@ import React from 'react'
 import {MicWavExtract} from './MicWavExtract'
 
 
-const NUM_FRAMES = 3; // One frame is ~23ms of audio.
-const FRAME_SIZE = 232;
-const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
+export const NUM_FRAMES = 3; // One frame is ~23ms of audio.
+export const FRAME_SIZE = 232;
+export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
 
 function flatten(tensors) {
     const size = tensors[0].length;
