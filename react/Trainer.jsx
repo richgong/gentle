@@ -8,6 +8,7 @@ import PHONE_MAP from './phones.json'
 
 export const NUM_FRAMES = 3
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
+export const NUM_OUTPUT = Object.keys(PHONE_MAP).length + 1
 
 
 export default class App extends React.Component {
@@ -56,6 +57,7 @@ export default class App extends React.Component {
             .catch(console.error)
 
         this.model = this.buildModel()
+        this.examples = []
     }
 
     buildModel() {
@@ -68,7 +70,7 @@ export default class App extends React.Component {
         }));
         model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
         model.add(tf.layers.flatten());
-        model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+        model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
         const optimizer = tf.train.adam(0.01);
         model.compile({
             optimizer,
@@ -224,10 +226,40 @@ export default class App extends React.Component {
             if (itemKey) {
                 axios.get(`/api/train_list/${itemKey}`)
                     .then(response => {
-                        console.warn('PHONE_MAP:', PHONE_MAP)
                         let {item} = response.data
-                        console.log("GOT TRAIN ITEM:", buffer.duration, item)
+                        console.log("NEW TRAIN ITEM:", buffer.duration, item)
                         this.setState({loading: false, item})
+                        let markers = []
+                        let {words} = item
+                        let cursor = 0
+                        words.forEach(word => {
+                            let {start, end, phones} = word
+                            if (cursor < start) {
+                                markers.push({
+                                    start: cursor,
+                                    label: 0,
+                                    name: 'N/A',
+                                })
+                            }
+                            cursor = start
+                            phones.forEach(phone => {
+                                markers.push({
+                                    start: cursor,
+                                    label: PHONE_MAP[phone.phone] || 0,
+                                    name: phone.phone,
+                                })
+                                cursor += phone.duration
+                            })
+                            cursor = end
+                            if (cursor < buffer.duration) {
+                                markers.push({
+                                    start: cursor,
+                                    label: 0,
+                                    name: 'N/A',
+                                })
+                            }
+                        })
+                        console.warn("Markers:", markers)
                     })
                     .catch(console.error)
             }
