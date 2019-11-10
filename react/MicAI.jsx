@@ -23,7 +23,7 @@ export class MicAI extends React.Component {
     constructor(props) {
         super(props)
         this.examples = [];
-        this.buildModel()
+        this.model = this.buildModel()
     }
 
     startExtract(callback) {
@@ -61,22 +61,23 @@ export class MicAI extends React.Component {
     }
 
     buildModel() {
-        this.model = tf.sequential();
-        this.model.add(tf.layers.depthwiseConv2d({
+        let model = tf.sequential();
+        model.add(tf.layers.depthwiseConv2d({
             depthMultiplier: 8,
             kernelSize: [NUM_FRAMES, 3],
             activation: 'relu',
             inputShape: INPUT_SHAPE
         }));
-        this.model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
-        this.model.add(tf.layers.flatten());
-        this.model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+        model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+        model.add(tf.layers.flatten());
+        model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
         const optimizer = tf.train.adam(0.01);
-        this.model.compile({
+        model.compile({
             optimizer,
             loss: 'categoricalCrossentropy',
             metrics: ['accuracy']
         });
+        return model
     }
 
     collect(label) {

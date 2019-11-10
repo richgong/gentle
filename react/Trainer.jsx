@@ -4,6 +4,7 @@ import tinycolor from 'tinycolor2'
 import { random } from './utils'
 import { MicAI } from './MicAI.jsx'
 import {ExtractFFT} from "./ExtractFFT";
+import {INPUT_SHAPE, NUM_FRAMES} from "./MicAI";
 
 function clamp(num, min, max) {
     return num <= min ? min : num >= max ? max : num;
@@ -14,8 +15,8 @@ export default class App extends React.Component {
     constructor(props) {
         super(props)
         this.state = {
-            trainItems: [],
-            loadingTrainItems: true,
+            libraryItems: [],
+            loadingLibrary: true,
             isStarted: false,
             isRecording: false,
             hasRecording: false,
@@ -48,11 +49,33 @@ export default class App extends React.Component {
             .then(response => {
                 console.log("Got train list:", response.data)
                 this.setState({
-                    trainItems: response.data.items,
-                    loadingTrainItems: false,
+                    libraryItems: response.data.items,
+                    loadingLibrary: false,
                 })
             })
             .catch(console.error)
+
+        this.model = this.buildModel()
+    }
+
+    buildModel() {
+        let model = tf.sequential();
+        model.add(tf.layers.depthwiseConv2d({
+            depthMultiplier: 8,
+            kernelSize: [NUM_FRAMES, 3],
+            activation: 'relu',
+            inputShape: INPUT_SHAPE
+        }));
+        model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+        model.add(tf.layers.flatten());
+        model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
+        const optimizer = tf.train.adam(0.01);
+        model.compile({
+            optimizer,
+            loss: 'categoricalCrossentropy',
+            metrics: ['accuracy']
+        });
+        return model
     }
 
     async start() {
@@ -206,9 +229,6 @@ export default class App extends React.Component {
                 axios.get(`/api/train_list/${itemKey}`)
                     .then(response => {
                         console.log("Got train info:", itemKey, buffer.duration, response.data)
-                        /*this.setState({
-                            trainItems: response.data.items
-                        })*/
                         this.setState({loading: false})
                     })
                     .catch(console.error)
@@ -234,20 +254,20 @@ export default class App extends React.Component {
     }
 
     loadNextItem() {
-        let { trainItems } = this.state
-        let itemIndex = Math.floor(random(0, trainItems.length))
-        let itemKey = trainItems[itemIndex]
+        let { libraryItems } = this.state
+        let itemIndex = Math.floor(random(0, libraryItems.length))
+        let itemKey = libraryItems[itemIndex]
         console.log('next itemKey', itemIndex, itemKey)
         this.setState({itemKey, loading: true})
         this.loadUrl(`/static/LibriTTS/train-clean-100/${itemKey}.wav`)
     }
 
     render() {
-        let {trainItems, loadingTrainItems, isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
+        let {libraryItems, loadingLibrary, isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
             <div>
                 <h1>GentleTrainer</h1>
-                {loadingTrainItems ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
+                {loadingLibrary ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{libraryItems.length} training items loaded.</div>}
                 <MicAI />
                 <div className="card my-5">
                     <h5 className="card-header">
