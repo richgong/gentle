@@ -81,6 +81,8 @@ class Player extends React.Component {
 
     _computeRMS(buffer, width){
         const array = buffer.toArray(0)
+        if (this.fileAI)
+            this.fileAI.onLoaded(buffer, array)
         const length = 64
         const rmses = []
         for (let i = 0; i < width; i++){
@@ -102,10 +104,9 @@ class Player extends React.Component {
             let {tone} = this
             this.togglePlay(null, false)
 
-            const buffer = tone.buffer
-            const canvas = this.wavCanvas
-            const {width, height} = canvas
-            const context = canvas.getContext('2d')
+            const { buffer } = tone
+            const {width, height} = this.wavCanvas
+            const context = this.wavCanvas.getContext('2d')
             context.clearRect(0, 0, width, height)
             this._computeRMS(buffer, width)
 
@@ -168,19 +169,23 @@ class Player extends React.Component {
     render() {
         let { isStarted, isRecording, hasRecording, playing, itemKey, loading } = this.state
         return (
-            <div className="card my-5">
-                <h5 className="card-header">
-                    {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
-                </h5>
-                <div className="card-body">
-                    <canvas id="my-wav" className="border border-primary" width="600" height="100" ref={wavCanvas => {this.wavCanvas = wavCanvas}}></canvas>
-                </div>
-                <div className="card-footer text-muted">
-                    {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
-                    {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
-                    {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
-                    {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                    <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemKey})</button>
+            <div>
+                <MicAI />
+                <FileAI ref={x => this.fileAI = x}/>
+                <div className="card my-5">
+                    <h5 className="card-header">
+                        {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
+                    </h5>
+                    <div className="card-body">
+                        <canvas id="my-wav" className="border border-primary" width="600" height="100" ref={wavCanvas => {this.wavCanvas = wavCanvas}}></canvas>
+                    </div>
+                    <div className="card-footer text-muted">
+                        {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
+                        {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
+                        {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
+                        {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
+                        <button className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>Load next (currently: {itemKey})</button>
+                    </div>
                 </div>
             </div>
         )
@@ -214,8 +219,6 @@ export default class App extends React.Component {
             <div>
                 <h1>GentleTrainer</h1>
                 {loading ? <div className="alert alert-warning">Loading...</div> : <div className="alert alert-secondary">{trainItems.length} training items loaded.</div>}
-                <MicAI />
-                <FileAI />
                 <Player trainItems={trainItems} />
             </div>
         )

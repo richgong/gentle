@@ -1,15 +1,14 @@
 import React from 'react'
-import {WavFileExtract} from './WavFileExtract';
+import {ExtractFFT} from './ExtractFFT';
 import {NUM_FRAMES, FRAME_SIZE, INPUT_SHAPE, normalize, flatten} from './MicAI'
 import {MicWavExtract} from "./MicWavExtract";
-
-// this.extractor.start(channelData)
 
 export class FileAI extends React.Component {
     constructor(props) {
         super(props)
         this.examples = [];
         this.buildModel()
+        this.extractFFT = new ExtractFFT()
     }
 
     startExtract(callback) {
@@ -29,6 +28,11 @@ export class FileAI extends React.Component {
             overlapFactor: 0.999,
         })
         this.extract.start()
+    }
+
+    onLoaded(buffer, array) {
+        console.warn("FileAI question:", buffer._buffer, array);
+        console.warn("FileAI answer:", this.extractFFT.start(array))
     }
 
     isExtracting() {
