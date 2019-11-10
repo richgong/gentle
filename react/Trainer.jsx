@@ -93,10 +93,7 @@ class Player extends React.Component {
         this.wavesurfer.load(url)
     }
 
-    _computeRMS(buffer, width){
-        const array = buffer.toArray(0)
-        if (this.fileAI)
-            this.fileAI.onLoaded(buffer, array)
+    computeRMS(array, width){
         const length = 64
         const rmses = []
         for (let i = 0; i < width; i++){
@@ -110,7 +107,7 @@ class Player extends React.Component {
             rmses[i] = rms
         }
         const max = Math.max(...rmses)
-        this._waveform = rmses.map(v => Math.scale(Math.pow(v, 0.8), 0, max, 0, 1))
+        return rmses.map(v => Math.scale(Math.pow(v, 0.8), 0, max, 0, 1))
     }
 
     onLoaded() {
@@ -122,9 +119,11 @@ class Player extends React.Component {
             const {width, height} = this.wavCanvas
             const context = this.wavCanvas.getContext('2d')
             context.clearRect(0, 0, width, height)
-            this._computeRMS(buffer, width)
+            let array = buffer.toArray(0)
+            this.fileAI.onLoaded(buffer, array)
+            let waveform = this.computeRMS(array, width)
 
-            const loopStart = Math.scale(tone.loopStart, 0, buffer.duration, 0, width)
+            let loopStart = Math.scale(tone.loopStart, 0, buffer.duration, 0, width)
             let loopEnd = Math.scale(tone.loopEnd, 0, buffer.duration, 0, width)
             if (tone.loopEnd === 0) {
                 loopEnd = width
@@ -132,7 +131,7 @@ class Player extends React.Component {
             this.color = '#0dd';
             context.fillStyle = this.color
             const lightened = tinycolor(this.color).setAlpha(0.2).toRgbString()
-            this._waveform.forEach((val, i) => {
+            waveform.forEach((val, i) => {
                 const barHeight = val * height
                 const x = tone.reverse ? width - i : i
                 if (tone.loop) {
