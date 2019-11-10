@@ -3,7 +3,12 @@ import axios from 'axios'
 import tinycolor from 'tinycolor2'
 import { random } from './utils'
 import { MicAI } from './MicAI.jsx'
-import { FileAI } from './FileAI.jsx'
+import {ExtractFFT} from "./ExtractFFT";
+
+function clamp(num, min, max) {
+    return num <= min ? min : num >= max ? max : num;
+}
+
 
 
 class Player extends React.Component {
@@ -36,6 +41,7 @@ class Player extends React.Component {
                 })
             ]
         })
+        this.extractFFT = new ExtractFFT()
     }
 
     async start() {
@@ -110,36 +116,79 @@ class Player extends React.Component {
         return rmses.map(v => Math.scale(Math.pow(v, 0.8), 0, max, 0, 1))
     }
 
+    drawWave(tone, buffer, array) {
+        const {width, height} = this.wavCanvas
+        const context = this.wavCanvas.getContext('2d')
+        context.clearRect(0, 0, width, height)
+        let waveform = this.computeRMS(array, width)
+        let loopStart = Math.scale(tone.loopStart, 0, buffer.duration, 0, width)
+        let loopEnd = Math.scale(tone.loopEnd, 0, buffer.duration, 0, width)
+        if (tone.loopEnd === 0) {
+            loopEnd = width
+        }
+        let color = '#0dd';
+        context.fillStyle = color
+        const lightened = tinycolor(color).setAlpha(0.2).toRgbString()
+        waveform.forEach((val, i) => {
+            const barHeight = val * height
+            const x = tone.reverse ? width - i : i
+            if (tone.loop) {
+                context.fillStyle = loopStart > x || x > loopEnd ? lightened : color
+            }
+            context.fillRect(x, height / 2 - barHeight / 2, 1, barHeight)
+            context.fill()
+        })
+    }
+
+    drawFft(tone, buffer, array) {
+
+        const {width, height} = this.fftCanvas
+        const context = this.fftCanvas.getContext('2d')
+        context.clearRect(0, 0, width, height)
+
+        let slices = this.extractFFT.start(array)
+        if (!slices.length)
+            return
+
+        console.warn("FFT question:", buffer._buffer, array);
+        console.warn("FFT answer:", slices)
+
+        let incWidth = width / slices.length
+        let incHeight = height / slices[0].length
+        let max = null, min = null
+
+        for (let i = 0; i < slices.length; ++i) {
+            let slice = slices[i]
+            for (let j = 0; j < slice.length; ++j) {
+                let v = slice[j]
+                max = max === null ? v : Math.max(v, max)
+                min = min === null ? v : Math.min(v, min)
+            }
+        }
+
+        console.warn("Range:", min, max, incWidth, incHeight)
+
+        for (let i = 0; i < slices.length; ++i) {
+            let slice = slices[i]
+            for (let j = 0; j < slice.length; ++j) {
+                let v = slice[j]
+                let c = Math.floor(Math.scale(v, min, max, 0, 1) * 255.0)
+                context.fillStyle = `rgb(${c}, ${c}, ${c})`
+                context.fillRect(i * incWidth, height - (j + 1) * incHeight, incWidth, incHeight)
+            }
+        }
+    }
+
     onLoaded() {
         try {
             let {tone} = this
             this.togglePlay(null, false)
 
             const { buffer } = tone
-            const {width, height} = this.wavCanvas
-            const context = this.wavCanvas.getContext('2d')
-            context.clearRect(0, 0, width, height)
             let array = buffer.toArray(0)
-            this.fileAI.onLoaded(buffer, array)
-            let waveform = this.computeRMS(array, width)
+            this.drawWave(tone, buffer, array)
+            this.drawFft(tone, buffer, array)
 
-            let loopStart = Math.scale(tone.loopStart, 0, buffer.duration, 0, width)
-            let loopEnd = Math.scale(tone.loopEnd, 0, buffer.duration, 0, width)
-            if (tone.loopEnd === 0) {
-                loopEnd = width
-            }
-            this.color = '#0dd';
-            context.fillStyle = this.color
-            const lightened = tinycolor(this.color).setAlpha(0.2).toRgbString()
-            waveform.forEach((val, i) => {
-                const barHeight = val * height
-                const x = tone.reverse ? width - i : i
-                if (tone.loop) {
-                    context.fillStyle = loopStart > x || x > loopEnd ? lightened : this.color
-                }
-                context.fillRect(x, height / 2 - barHeight / 2, 1, barHeight)
-                context.fill()
-            })
             this.setState({hasRecording: true})
             let {itemKey} = this.state
             axios.get(`/api/train_list/${itemKey}`)
@@ -184,13 +233,13 @@ class Player extends React.Component {
         return (
             <div>
                 <MicAI />
-                <FileAI ref={x => this.fileAI = x}/>
                 <div className="card my-5">
                     <h5 className="card-header">
                         {loading ? <span><i className="fa fa-spin fa-spinner"></i> Loading...</span> : <span>Wave loader</span>}
                     </h5>
                     <div className="card-body">
-                        <canvas id="my-wav" className="border border-primary" width="600" height="100" ref={wavCanvas => {this.wavCanvas = wavCanvas}}></canvas>
+                        <canvas className="border border-primary" width="600" height="100" ref={x => {this.wavCanvas = x}}></canvas>
+                        <canvas className="border border-primary" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
                     </div>
                     <div className="card-footer text-muted">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
