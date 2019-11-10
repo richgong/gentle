@@ -35,7 +35,7 @@ export class MicAI extends React.Component {
             numFrames: NUM_FRAMES,
             fftTruncate: FRAME_SIZE,
         })
-        this.extract.start()
+        this.extract.start(this.fftCanvas)
     }
 
     isExtracting() {
@@ -76,9 +76,9 @@ export class MicAI extends React.Component {
         }
         this.startExtract(({frameSize, data}) => {
             let vals = normalize(data.subarray(-frameSize * NUM_FRAMES));
-            console.log(`Collected data for ${label} (frameSize=${frameSize}) (length=${vals.length}):`, vals)
+            // console.log(`Collected data for ${label} (frameSize=${frameSize}) (length=${vals.length}):`, vals)
             this.examples.push({vals, label});
-            console.log(`${this.examples.length} examples collected`);
+            console.log(`${this.examples.length} examples collected for label=${label}`);
         })
     }
 
@@ -117,11 +117,12 @@ export class MicAI extends React.Component {
     render() {
         return (<div className="my-4">
             <h3>MicAI</h3>
-            <button className="btn btn-warning" onMouseDown={() => this.collect(0)} onMouseUp={() => this.collect(null)}>Left</button>
-            <button className="btn btn-warning" onMouseDown={() => this.collect(1)} onMouseUp={() => this.collect(null)}>Right</button>
-            <button className="btn btn-warning" onMouseDown={() => this.collect(2)} onMouseUp={() => this.collect(null)}>Noise</button>
-            <button className="btn btn-danger" onClick={this.train.bind(this)}>Train</button>
-            <button className="btn btn-success" onClick={this.predict.bind(this)}>Listen</button>
+            <canvas className="border border-primary d-block my-2" width="600" height="100" ref={x => {this.fftCanvas = x}}></canvas>
+            <button className="btn btn-warning mr-2" onMouseDown={() => this.collect(0)} onMouseUp={() => this.collect(null)}>Left</button>
+            <button className="btn btn-warning mr-1" onMouseDown={() => this.collect(1)} onMouseUp={() => this.collect(null)}>Right</button>
+            <button className="btn btn-warning mr-1" onMouseDown={() => this.collect(2)} onMouseUp={() => this.collect(null)}>Noise</button>
+            <button className="btn btn-danger mr-1" onClick={this.train.bind(this)}>Train</button>
+            <button className="btn btn-success mr-1" onClick={this.predict.bind(this)}>Listen</button>
         </div>)
     }
 

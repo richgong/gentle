@@ -23,3 +23,7 @@ export function random(min, max) {
     max = (typeof max !== "undefined") ? max : 1;
     return min + _seededRandom() * (max - min);
 }
+
+export function clamp(v, min, max) {
+    return v <= min ? min : v >= max ? max : v;
+}

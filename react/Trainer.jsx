@@ -4,11 +4,10 @@ import tinycolor from 'tinycolor2'
 import { random } from './utils'
 import { MicAI } from './MicAI.jsx'
 import {ExtractFFT} from "./ExtractFFT";
-import {INPUT_SHAPE, NUM_FRAMES} from "./MicAI";
 
-function clamp(num, min, max) {
-    return num <= min ? min : num >= max ? max : num;
-}
+export const NUM_FRAMES = 3;
+export const FRAME_SIZE = 1024;
+export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
 
 
 export default class App extends React.Component {
@@ -174,33 +173,26 @@ export default class App extends React.Component {
         })
     }
 
-    drawFft(tone, buffer, array) {
-
+    drawFft(tone, buffer, slices) {
         const {width, height} = this.fftCanvas
         const context = this.fftCanvas.getContext('2d')
         context.clearRect(0, 0, width, height)
-
-        let slices = this.extractFFT.start(array)
         if (!slices.length)
             return
 
-        console.log("FFT question:", buffer._buffer, array.length);
-        console.log("FFT answer slices:", slices.length)
-
         let incWidth = width / slices.length
         let incHeight = height / slices[0].length
-        let max = null, min = null
+        let max = slices[0][0], min = slices[0][0]
 
         for (let i = 0; i < slices.length; ++i) {
             let slice = slices[i]
             for (let j = 0; j < slice.length; ++j) {
                 let v = slice[j]
-                max = max === null ? v : Math.max(v, max)
-                min = min === null ? v : Math.min(v, min)
+                max = Math.max(v, max)
+                min = Math.min(v, min)
             }
         }
-
-        console.log("Range:", min, max, incWidth, incHeight)
+        console.log(`Range: min=${min} max=${max} incWidth=${incWidth} incHeight=${incHeight}`)
 
         for (let i = 0; i < slices.length; ++i) {
             let slice = slices[i]
@@ -221,7 +213,10 @@ export default class App extends React.Component {
             const { buffer } = tone
             let array = buffer.toArray(0)
             this.drawWave(tone, buffer, array)
-            this.drawFft(tone, buffer, array)
+
+            let slices = this.extractFFT.start(array)
+            console.log("extractFFT:", buffer._buffer, array.length, "=>", slices.length)
+            this.drawFft(tone, buffer, slices)
 
             this.setState({hasRecording: true})
             let {itemKey} = this.state

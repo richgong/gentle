@@ -1,9 +1,45 @@
+import {clamp} from './utils'
+
 /**
  * FFT extractor using browser's native FFT.
  *
  * See BrowserFftFeatureExtractor:
  * https://github.com/tensorflow/tfjs-models/blob/master/speech-commands/src/browser_fft_extractor.ts#L88
  */
+
+class Drawer {
+    constructor(canvas, fftSize) {
+        this.canvas = canvas
+        this.context = this.canvas.getContext('2d')
+        this.width = canvas.width
+        this.height = canvas.height
+        this.incHeight = this.height / fftSize
+        this.incWidth = 1
+        this.min = null
+        this.max = null
+    }
+
+    drawSlice(slice) {
+        let crop = this.context.getImageData(0, 0, this.width - this.incWidth, this.height);
+        this.context.putImageData(crop, this.incWidth, 0);
+        this.context.clearRect(0, 0, this.incWidth, this.height)
+        for (let i = 0; i < slice.length; ++i) {
+            let v = slice[i]
+            if (this.min === null || v < this.min) {
+                this.min = v
+                console.log("New min:", this.min)
+            }
+            if (this.max === null || v > this.max) {
+                this.max = v
+                console.log("New max:", this.max)
+            }
+            v = clamp(v, this.min, this.max)
+            let c = Math.floor(Math.scale(v, this.min, this.max, 0, 1) * 255)
+            this.context.fillStyle = `rgb(${c}, ${c}, ${c})`
+            this.context.fillRect(0, this.height - (i + 1) * this.incHeight, this.incWidth, this.incHeight)
+        }
+    }
+}
 
 export class MicWavExtract {
     sampleRate = 44100
@@ -18,9 +54,11 @@ export class MicWavExtract {
         this.fftTruncate = fftTruncate || this.fftSize
     }
 
-    async start() {
+    async start(fftCanvas) {
         if (this.onAudioFrameTimer != null)
             throw new Error('Cannot start already-started MicWavExtract')
+
+        this.drawer = new Drawer(fftCanvas, this.fftSize)
 
         this.stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
@@ -46,6 +84,8 @@ export class MicWavExtract {
         this.analyser.getFloatFrequencyData(this.freqData);
         if (this.freqData[0] === -Infinity)
             return
+
+        this.drawer.drawSlice(this.freqData)
 
         this.freqDataQueue.push(this.freqData.slice(0, this.fftTruncate));
         if (this.freqDataQueue.length > this.numFrames)
@@ -86,6 +126,6 @@ export function flattenQueue(queue) {
 
 export function getInputTensorFromFrequencyData(freqData, shape) {
     const vals = new Float32Array(tf.util.sizeFromShape(shape))
-    vals.set(freqData, vals.length - freqData.length) // if smaller than shape, padd with zeros.
+    vals.set(freqData, vals.length - freqData.length) // if smaller than shape, pad
     return tf.tensor(vals, shape)
 }
