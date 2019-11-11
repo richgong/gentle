@@ -38,6 +38,7 @@ def home_view():
 
 TRAIN_PATH = os.path.realpath('gong/static/LibriTTS/train-clean-100')
 print("TRAIN_PATH:", TRAIN_PATH)
+resources = gentle.Resources()
 
 
 def run_gentle(key='103/1241/103_1241_000000_000001'):
@@ -52,7 +53,6 @@ def run_gentle(key='103/1241/103_1241_000000_000001'):
     with open(text_file, encoding="utf-8") as fh:
         transcript = fh.read()
 
-    resources = gentle.Resources()
     logging.info("converting audio to 8K sampled wav")
 
     def on_progress(p):
@@ -67,7 +67,7 @@ def run_gentle(key='103/1241/103_1241_000000_000001'):
                                        disfluency=False,  # include disfluencies (uh, um) in alignment
                                        conservative=False,
                                        disfluencies=set(['uh', 'um']))
-        result = aligner.transcribe(wavfile, progress_cb=on_progress, logging=logging)
+        result = aligner.transcribe(wavfile, progress_cb=None, logging=logging)
         result_dict = result.to_dict()
         with open(json_file, 'w') as f:
             f.write(json.dumps(result_dict, indent=2))

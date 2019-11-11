@@ -58,6 +58,7 @@ export default class App extends React.Component {
 
         this.model = this.buildModel()
         this.examples = []
+        this.outputToCount = {}
     }
 
     buildModel() {
@@ -235,30 +236,32 @@ export default class App extends React.Component {
                         let cursor = 0
                         words.forEach(word => {
                             let {start, end, phones} = word
-                            if (cursor < start) {
-                                markers.push({
-                                    start: cursor,
-                                    end: start,
-                                    label: 0,
-                                    name: 'N/A',
+                            if (phones) {
+                                if (cursor < start) {
+                                    markers.push({
+                                        start: cursor,
+                                        end: start,
+                                        output: 0,
+                                        name: 'N/A',
+                                    })
+                                }
+                                cursor = start
+                                phones.forEach(phone => {
+                                    markers.push({
+                                        start: cursor,
+                                        end: cursor + phone.duration,
+                                        output: PHONE_MAP[phone.phone] || 0,
+                                        name: phone.phone,
+                                    })
+                                    cursor += phone.duration
                                 })
+                                cursor = end
                             }
-                            cursor = start
-                            phones.forEach(phone => {
-                                markers.push({
-                                    start: cursor,
-                                    end: cursor + phone.duration,
-                                    label: PHONE_MAP[phone.phone] || 0,
-                                    name: phone.phone,
-                                })
-                                cursor += phone.duration
-                            })
-                            cursor = end
                         })
                         markers.push({
                             start: cursor,
                             end: buffer.duration,
-                            label: 0,
+                            output: 0,
                             name: 'N/A',
                         })
                         //console.warn("Markers:", markers)
@@ -275,10 +278,13 @@ export default class App extends React.Component {
                             if (queue.length >= NUM_FRAMES && markerIndex < markers.length) {
                                 // console.warn(start, markers[markerIndex])
                                 // console.warn(queue.length, queue[0].length, queue)
-                                this.examples.push({input: flatten(queue), output: markers[markerIndex].label});
+                                let { output } = markers[markerIndex]
+                                this.examples.push({input: flatten(queue), output});
+                                this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
                                 this.rerender()
                             }
                         }
+                        console.warn("outputToCount:", Object.keys(this.outputToCount).length, this.outputToCount)
                     })
                     .catch(console.error)
             }
@@ -344,6 +350,8 @@ export default class App extends React.Component {
                     <tbody>
                     {words.map((word, i) => {
                         let totalDuration = 0.
+                        if (!word.phones)
+                            return null
                         word.phones.forEach(x => {
                             totalDuration += x.duration
                         })
