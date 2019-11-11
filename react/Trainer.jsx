@@ -219,6 +219,7 @@ export default class App extends React.Component {
 
             let fftSlices = this.extractFFT.extract(array)
             console.log("extractFFT:", buffer._buffer, array.length, "=>", fftSlices.length)
+            let {sampleRate} = buffer._buffer
             this.drawFft(tone, buffer, fftSlices)
 
             this.setState({hasRecording: true})
@@ -237,6 +238,7 @@ export default class App extends React.Component {
                             if (cursor < start) {
                                 markers.push({
                                     start: cursor,
+                                    end: start,
                                     label: 0,
                                     name: 'N/A',
                                 })
@@ -245,21 +247,30 @@ export default class App extends React.Component {
                             phones.forEach(phone => {
                                 markers.push({
                                     start: cursor,
+                                    end: cursor + phone.duration,
                                     label: PHONE_MAP[phone.phone] || 0,
                                     name: phone.phone,
                                 })
                                 cursor += phone.duration
                             })
                             cursor = end
-                            if (cursor < buffer.duration) {
-                                markers.push({
-                                    start: cursor,
-                                    label: 0,
-                                    name: 'N/A',
-                                })
-                            }
+                        })
+                        markers.push({
+                            start: cursor,
+                            end: buffer.duration,
+                            label: 0,
+                            name: 'N/A',
                         })
                         console.warn("Markers:", markers)
+                        let markerIndex = 0
+                        for (let i = 0; i < fftSlices.length; ++i) {
+                            let slice = fftSlices[i]
+                            let start = (i * this.extractFFT.getStepSize()) / sampleRate
+                            while (markerIndex < markers.length && markers[markerIndex].end < start)
+                                markerIndex++
+                            if (markerIndex < markers.length)
+                                console.warn(start, markers[markerIndex])
+                        }
                     })
                     .catch(console.error)
             }

@@ -28,10 +28,14 @@ export class ExtractFFT {
         return this.features
     }
 
+    getStepSize() {
+        return this.fftSize
+    }
+
     getSlices(sample) {
         const slices = []
         let index = 0
-        let stepSize = this.fftSize
+        let stepSize = this.getStepSize()
         while (index <= sample.length - stepSize) {
             const slice = sample.slice(index, index + stepSize)
             slices.push(slice)
