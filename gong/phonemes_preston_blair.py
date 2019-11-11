@@ -30,6 +30,7 @@
 # etc=CDGKNRSThYZ
 
 phoneme_set = [
+    'rest',  # not really a phoneme - this is used in-between phrases when the mouth is at rest
     'AI',
     'O',
     'E',
@@ -39,7 +40,6 @@ phoneme_set = [
     'WQ',
     'MBP',
     'FV',
-    # 'rest'  # not really a phoneme - this is used in-between phrases when the mouth is at rest
 ]
 
 # Phoneme conversion dictionary: CMU on the left to Preston Blair on the right

@@ -94,8 +94,8 @@ def dump_cmu():
     d2 = {}
     c = 0
     for phoneme in phoneme_set:
-        c += 1
         d2[phoneme] = c
+        c += 1
     with open('react/prestonblair_to_output.json', 'w') as f:
         f.write(json.dumps(d2, indent=2))
 

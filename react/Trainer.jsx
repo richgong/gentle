@@ -4,11 +4,27 @@ import tinycolor from 'tinycolor2'
 import { random, flatten } from './utils'
 import { MicAI } from './MicAI.jsx'
 import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
-import PHONE_MAP from './phones.json'
+// import PHONE_MAP from './phones.json'
+import PRESTONBLAIR_TO_OUTPUT from './prestonblair_to_output.json'
+import GENTLE_TO_PRESTONBLAIR from './gentle_to_prestonblair.json'
 
-export const NUM_FRAMES = 3
+export const NUM_FRAMES = 5
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
-export const NUM_OUTPUT = Object.keys(PHONE_MAP).length + 1
+export const NUM_OUTPUT = Object.keys(PRESTONBLAIR_TO_OUTPUT).length
+
+function getOutputFromGentlePhone(phone) {
+    let prestonBlair = GENTLE_TO_PRESTONBLAIR[phone]
+    if (!prestonBlair) {
+        console.warn("Gentle phone not mapped to PrestonBlair:", phone)
+        return -1
+    }
+    let output = PRESTONBLAIR_TO_OUTPUT[prestonBlair]
+    if (!output) {
+        console.warn("PrestonBlair not found:", prestonBlair)
+        return -1
+    }
+    return output
+}
 
 export default class App extends React.Component {
     constructor(props) {
@@ -250,7 +266,7 @@ export default class App extends React.Component {
                                     markers.push({
                                         start: cursor,
                                         end: cursor + phone.duration,
-                                        output: PHONE_MAP[phone.phone] || 0,
+                                        output: getOutputFromGentlePhone(phone.phone),
                                         name: phone.phone,
                                     })
                                     cursor += phone.duration
@@ -279,9 +295,11 @@ export default class App extends React.Component {
                                 // console.warn(start, markers[markerIndex])
                                 // console.warn(queue.length, queue[0].length, queue)
                                 let { output } = markers[markerIndex]
-                                this.examples.push({input: flatten(queue), output});
-                                this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
-                                this.rerender()
+                                if (output !== -1) {
+                                    this.examples.push({input: flatten(queue), output});
+                                    this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
+                                    this.rerender()
+                                }
                             }
                         }
                         console.warn("outputToCount:", Object.keys(this.outputToCount).length, this.outputToCount)
