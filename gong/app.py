@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import glob
 import json
+from gong.utils import TRAIN_PATH
 
 
 app = Flask(__name__)
@@ -36,8 +37,6 @@ def home_view():
     return render_template('home.html')
 
 
-TRAIN_PATH = os.path.realpath('gong/static/LibriTTS/train-clean-100')
-print("TRAIN_PATH:", TRAIN_PATH)
 resources = gentle.Resources()
 
 
