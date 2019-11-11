@@ -10,7 +10,6 @@ export const NUM_FRAMES = 3
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
 export const NUM_OUTPUT = Object.keys(PHONE_MAP).length + 1
 
-
 export default class App extends React.Component {
     constructor(props) {
         super(props)
@@ -24,6 +23,7 @@ export default class App extends React.Component {
             itemKey: null,
             item: null,
             loading: false,
+            dummy: 0,
         }
         this.recordedBlobs = [];
         this.tone = new Tone.Player({
@@ -261,15 +261,23 @@ export default class App extends React.Component {
                             label: 0,
                             name: 'N/A',
                         })
-                        console.warn("Markers:", markers)
+                        //console.warn("Markers:", markers)
                         let markerIndex = 0
+                        let queue = []
                         for (let i = 0; i < fftSlices.length; ++i) {
                             let slice = fftSlices[i]
                             let start = (i * this.extractFFT.getStepSize()) / sampleRate
                             while (markerIndex < markers.length && markers[markerIndex].end < start)
                                 markerIndex++
-                            if (markerIndex < markers.length)
-                                console.warn(start, markers[markerIndex])
+                            if (queue.length >= NUM_FRAMES)
+                                queue.shift()
+                            queue.push(slice)
+                            if (queue.length >= NUM_FRAMES && markerIndex < markers.length) {
+                                // console.warn(start, markers[markerIndex])
+                                // console.warn(queue.length, queue[0].length, queue)
+                                this.examples.push({input: flatten(queue), output: markers[markerIndex].label});
+                                this.rerender()
+                            }
                         }
                     })
                     .catch(console.error)
@@ -277,6 +285,27 @@ export default class App extends React.Component {
         } catch (error) {
             console.error(error)
         }
+    }
+
+    rerender() {
+        this.setState({dummy: this.state.dummy + 1})
+    }
+
+    async train() {
+        const ys = tf.oneHot(this.examples.map(e => e.output), NUM_OUTPUT);
+        const xsShape = [this.examples.length, ...INPUT_SHAPE];
+        const xs = tf.tensor(flatten(this.examples.map(e => e.input)), xsShape);
+
+        await this.model.fit(xs, ys, {
+            batchSize: 16,
+            epochs: 10,
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    console.warn(`Accuracy: ${(logs.acc * 100).toFixed(1)}% Epoch: ${epoch + 1}`);
+                }
+            }
+        });
+        tf.dispose([xs, ys]);
     }
 
     download() {
@@ -350,9 +379,10 @@ export default class App extends React.Component {
                         {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
                         {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
                         {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                        <button disabled={loadingLibrary || loading} className="btn btn-primary ml-1" onClick={this.loadNextItem.bind(this)}>
+                        <button disabled={loadingLibrary || loading} className="btn btn-info ml-1" onClick={this.loadNextItem.bind(this)}>
                             Load next (current: {itemKey || 'N/A'}) ({libraryItems.length} items)
                         </button>
+                        <button className="btn btn-danger ml-1" onClick={this.train.bind(this)}>Train on {this.examples.length} examples</button>
                     </h5>
                     <div className="card-body">
                         Waveform:

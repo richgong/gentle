@@ -1,4 +1,4 @@
-import {clamp} from './utils'
+import {clamp, flatten} from './utils'
 
 /**
  * FFT extractor using browser's native FFT.
@@ -91,13 +91,13 @@ export class MicWavExtract {
         if (this.freqDataQueue.length > this.numFrames)
             this.freqDataQueue.shift() // drop the oldest frame
 
-        const freqData = flattenQueue(this.freqDataQueue);
+        const freqData = flatten(this.freqDataQueue);
         const freqDataTensor = getInputTensorFromFrequencyData(
             freqData, [1, this.numFrames, this.fftTruncate, 1]);
         /*if (this.includeRawAudio) {
             this.analyser.getFloatTimeDomainData(this.timeData);
             this.timeDataQueue.push(this.timeData.slice());
-            const timeData = flattenQueue(this.timeDataQueue);
+            const timeData = flatten(this.timeDataQueue);
             timeDataTensor = getInputTensorFromFrequencyData(timeData, [1, this.numFrames * this.fftSize]);
         }*/
         await this.callback(freqDataTensor);
@@ -115,13 +115,6 @@ export class MicWavExtract {
             this.stream.getTracks()[0].stop()
         }
     }
-}
-
-export function flattenQueue(queue) {
-    const frameSize = queue[0].length
-    const freqData = new Float32Array(queue.length * frameSize)
-    queue.forEach((data, i) => freqData.set(data, i * frameSize))
-    return freqData
 }
 
 export function getInputTensorFromFrequencyData(freqData, shape) {
