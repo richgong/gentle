@@ -6,7 +6,7 @@ In contrast, a phoneme is a speech sound in a given language that, if swapped wi
 
 import json
 
-from gong.phonemes import phoneme_conversion, phoneme_set
+from gong.phonemes_preston_blair import phoneme_conversion, phoneme_set
 
 
 def dump_phones():
