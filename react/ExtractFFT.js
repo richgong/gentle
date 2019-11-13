@@ -22,8 +22,12 @@ export class ExtractFFT {
             const fft = this.audioUtils.fft(slice)
             const fftEnergies = this.audioUtils.fftEnergies(fft)
             const melEnergies = this.audioUtils.applyFilterbank(fftEnergies, this.melFilterbank)
-            // const mfccs = this.audioUtils.cepstrumFromEnergySpectrum(melEnergies)
-            this.features.push(melEnergies)
+            if (false) {
+                const mfccs = this.audioUtils.cepstrumFromEnergySpectrum(melEnergies)
+                this.features.push(mfccs)
+            } else {
+                this.features.push(melEnergies)
+            }
         }
         return this.features
     }

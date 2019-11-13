@@ -6,6 +6,7 @@ import {flatten} from './utils'
 export const NUM_FRAMES = 3; // One frame is ~23ms of audio.
 export const FRAME_SIZE = 232;
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1];
+const NUM_OUTPUT = 3;
 
 export function normalize(x) {
     const mean = -100;
@@ -42,23 +43,86 @@ export class MicAI extends React.Component {
     }
 
     buildModel() {
-        let model = tf.sequential();
-        model.add(tf.layers.depthwiseConv2d({
-            depthMultiplier: 8,
-            kernelSize: [NUM_FRAMES, 3],
-            activation: 'relu',
-            inputShape: INPUT_SHAPE
-        }));
-        model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
-        model.add(tf.layers.flatten());
-        model.add(tf.layers.dense({units: 3, activation: 'softmax'}));
-        const optimizer = tf.train.adam(0.01);
-        model.compile({
-            optimizer,
-            loss: 'categoricalCrossentropy',
-            metrics: ['accuracy']
-        });
-        return model
+        let kind = 'rnn'
+        if (kind == 'rnn') { // RNN attempt
+            let model = tf.sequential();
+            model.add(tf.layers.depthwiseConv2d({
+                depthMultiplier: 8,
+                kernelSize: [NUM_FRAMES, 3],
+                activation: 'relu',
+                inputShape: INPUT_SHAPE
+            }));
+            model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+
+
+            model.add(tf.layers.reshape({targetShape: [92, 10]}));
+
+            /*const cells = [
+                tf.layers.simpleRNNCell({units: NUM_OUTPUT}),
+                tf.layers.simpleRNNCell({units: NUM_OUTPUT}),
+            ];
+            model.add(tf.layers.rnn({cell: cells, returnSequences: true}))//*/
+            //console.log("Pre RNN:", model.outputShape)
+            model.add(tf.layers.simpleRNN({ units: 30, returnSequences: true }))
+            model.add(tf.layers.flatten());
+            //console.log("Pre output:", model.outputShape)
+
+            model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
+            const optimizer = tf.train.adam(0.01);
+            model.compile({
+                optimizer,
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            return model
+        } else if (kind == 'basic') { // basic network (works well)
+            let model = tf.sequential();
+            model.add(tf.layers.depthwiseConv2d({
+                depthMultiplier: 8,
+                kernelSize: [NUM_FRAMES, 3],
+                activation: 'relu',
+                inputShape: INPUT_SHAPE
+            }));
+            model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+
+            model.add(tf.layers.flatten());
+
+            model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
+            const optimizer = tf.train.adam(0.01);
+            model.compile({
+                optimizer,
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            return model
+        } else if (kind == 'fancy') { // found this somewhere (should work, not sure)
+            let model = tf.sequential();
+            model.add(tf.layers.conv2d(
+                {filters: 8, kernelSize: [4, 2], activation: 'relu',
+                    inputShape: INPUT_SHAPE}));
+            model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
+            model.add(tf.layers.conv2d(
+                {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
+            model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
+            model.add(tf.layers.conv2d(
+                {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
+            model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [2, 2]}));
+            model.add(tf.layers.conv2d(
+                {filters: 32, kernelSize: [4, 2], activation: 'relu'}));
+            model.add(tf.layers.maxPooling2d({poolSize: [2, 2], strides: [1, 2]}));
+            model.add(tf.layers.flatten({}));
+            model.add(tf.layers.dropout({rate: 0.25}));
+            model.add(tf.layers.dense({units: 2000, activation: 'relu'}));
+            model.add(tf.layers.dropout({rate: 0.5}));
+            model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
+
+            model.compile({
+                loss: 'categoricalCrossentropy',
+                optimizer: tf.train.sgd(0.01),
+                metrics: ['accuracy']
+            });
+            return model
+        }
     }
 
     collect(label) {

@@ -8,7 +8,7 @@ import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
 import PRESTONBLAIR_TO_OUTPUT from './prestonblair_to_output.json'
 import GENTLE_TO_PRESTONBLAIR from './gentle_to_prestonblair.json'
 
-export const NUM_FRAMES = 5
+export const NUM_FRAMES = 10
 export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
 export const NUM_OUTPUT = Object.keys(PRESTONBLAIR_TO_OUTPUT).length
 
@@ -26,9 +26,17 @@ function getOutputFromGentlePhone(phone) {
     return output
 }
 
+const OUTPUT_TO_PRESTONBLAIR = [], PRESTONBLAIR_TO_IMG = {}
+for (let [prestonBlair, index] of Object.entries(PRESTONBLAIR_TO_OUTPUT)) {
+    OUTPUT_TO_PRESTONBLAIR[index] = prestonBlair
+    let img = PRESTONBLAIR_TO_IMG[prestonBlair] = new Image()
+    img.src = `/static/prestonblair/${prestonBlair}.jpg`
+}
+
 export default class App extends React.Component {
     constructor(props) {
         super(props)
+        this.animate = this.animate.bind(this)
         this.state = {
             libraryItems: [],
             loadingLibrary: true,
@@ -75,26 +83,65 @@ export default class App extends React.Component {
         this.model = this.buildModel()
         this.examples = []
         this.outputToCount = {}
+        this.markers = []
     }
 
+    componentDidMount() {
+        this.animateContext = this.animateCanvas.getContext('2d')
+    }
+
+    /**
+     * See:
+     *   https://js.tensorflow.org/api/0.11.2/#layers.simpleRNN
+     *   https://www.tensorflow.org/api_docs/python/tf/keras/layers/Reshape
+     *   https://towardsdatascience.com/time-series-forecasting-with-tensorflow-js-1efd48ff2201
+     */
     buildModel() {
-        let model = tf.sequential();
-        model.add(tf.layers.depthwiseConv2d({
-            depthMultiplier: 8,
-            kernelSize: [NUM_FRAMES, 3],
-            activation: 'relu',
-            inputShape: INPUT_SHAPE
-        }));
-        model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
-        model.add(tf.layers.flatten());
-        model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
-        const optimizer = tf.train.adam(0.01);
-        model.compile({
-            optimizer,
-            loss: 'categoricalCrossentropy',
-            metrics: ['accuracy']
-        });
-        return model
+        let kind = 'basic'
+        if (kind == 'basic') {
+            let model = tf.sequential();
+            model.add(tf.layers.depthwiseConv2d({
+                depthMultiplier: 8,
+                kernelSize: [NUM_FRAMES, 3],
+                activation: 'relu',
+                inputShape: INPUT_SHAPE
+            }));
+            model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+            model.add(tf.layers.flatten());
+            model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
+            const optimizer = tf.train.adam(0.01);
+            model.compile({
+                optimizer,
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            return model
+        } else if (kind == 'rnn') {
+            let model = tf.sequential();
+            model.add(tf.layers.depthwiseConv2d({
+                depthMultiplier: 8,
+                kernelSize: [NUM_FRAMES, 3],
+                activation: 'relu',
+                inputShape: INPUT_SHAPE
+            }));
+            model.add(tf.layers.maxPooling2d({poolSize: [1, 2], strides: [2, 2]}));
+
+            console.log("Pre RNN #1:", model.outputShape)
+            model.add(tf.layers.reshape({targetShape: [19, 8]}));
+            //console.log("Pre RNN #2:", model.outputShape)
+            model.add(tf.layers.simpleRNN({ units: 30, returnSequences: true }))
+            //model.add(tf.layers.flatten());
+            console.log("Pre output:", model.outputShape)
+
+            model.add(tf.layers.dense({units: NUM_OUTPUT, activation: 'softmax'}));
+            const optimizer = tf.train.adam(0.01);
+            model.compile({
+                optimizer,
+                loss: 'categoricalCrossentropy',
+                metrics: ['accuracy']
+            });
+            return model
+        }
     }
 
     async start() {
@@ -132,10 +179,35 @@ export default class App extends React.Component {
             playing = !this.state.playing
         if (playing) {
             this.tone.start()
+            // this.audio.play()
+            this.markerIndex = 0
+            this.startedAt = this.tone.context.currentTime
+            this.animationId = requestAnimationFrame(this.animate);
         } else {
             this.tone.stop()
+            //this.audio.paused()
+            cancelAnimationFrame(this.animationId);
         }
         this.setState({playing})
+    }
+
+    animate() {
+        //this.animationLooper(this.canvas.current);
+        //this.analyser.getByteTimeDomainData(this.frequency_array);
+        // Dirty hack: https://stackoverflow.com/questions/31644060/how-can-i-get-an-audiobuffersourcenodes-current-time
+        let time = this.tone.context.currentTime - this.startedAt
+        if (this.markers && this.markerIndex < this.markers.length) {
+            if (time >= this.markers[this.markerIndex].start) {
+                let { label, output } = this.markers[this.markerIndex]
+                if (output !== -1) {
+                    //console.log("NEW", time, label)
+                    this.animateContext.drawImage(PRESTONBLAIR_TO_IMG[label], 0, 0)
+                }
+                this.markerIndex++
+            }
+        }
+        //console.log("ANIMATE", time, this.markerIndex, this.markers.length)
+        this.animationId = requestAnimationFrame(this.animate);
     }
 
     stop() {
@@ -149,7 +221,11 @@ export default class App extends React.Component {
 
     loadUrl(url) {
         this.tone.load(url, this.onLoaded.bind(this));
+        //this.audio = new Audio(url)
         this.wavesurfer.load(url)
+
+        //this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        //this.audioSource = this.audioContext.createMediaElementSource(this.audio);
     }
 
     computeRMS(array, width){
@@ -236,79 +312,118 @@ export default class App extends React.Component {
 
             let fftSlices = this.extractFFT.extract(array)
             console.log("extractFFT:", buffer._buffer, array.length, "=>", fftSlices.length)
-            let {sampleRate} = buffer._buffer
             this.drawFft(tone, buffer, fftSlices)
 
             this.setState({hasRecording: true})
             let {itemKey} = this.state
             if (itemKey) {
-                axios.get(`/api/train_list/${itemKey}`)
-                    .then(response => {
-                        let {item} = response.data
-                        console.log("NEW TRAIN ITEM:", buffer.duration, item)
-                        this.setState({loading: false, item})
-                        let markers = []
-                        let {words} = item
-                        let cursor = 0
-                        words.forEach(word => {
-                            let {start, end, phones} = word
-                            if (phones) {
-                                if (cursor < start) {
-                                    markers.push({
-                                        start: cursor,
-                                        end: start,
-                                        output: 0,
-                                        name: 'N/A',
-                                    })
-                                }
-                                cursor = start
-                                phones.forEach(phone => {
-                                    markers.push({
-                                        start: cursor,
-                                        end: cursor + phone.duration,
-                                        output: getOutputFromGentlePhone(phone.phone),
-                                        name: phone.phone,
-                                    })
-                                    cursor += phone.duration
-                                })
-                                cursor = end
-                            }
-                        })
-                        markers.push({
-                            start: cursor,
-                            end: buffer.duration,
-                            output: 0,
-                            name: 'N/A',
-                        })
-                        //console.warn("Markers:", markers)
-                        let markerIndex = 0
-                        let queue = []
-                        for (let i = 0; i < fftSlices.length; ++i) {
-                            let slice = fftSlices[i]
-                            let start = (i * this.extractFFT.getStepSize()) / sampleRate
-                            while (markerIndex < markers.length && markers[markerIndex].end < start)
-                                markerIndex++
-                            if (queue.length >= NUM_FRAMES)
-                                queue.shift()
-                            queue.push(slice)
-                            if (queue.length >= NUM_FRAMES && markerIndex < markers.length) {
-                                // console.warn(start, markers[markerIndex])
-                                // console.warn(queue.length, queue[0].length, queue)
-                                let { output } = markers[markerIndex]
-                                if (output !== -1) {
-                                    this.examples.push({input: flatten(queue), output});
-                                    this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
-                                    this.rerender()
-                                }
-                            }
-                        }
-                        console.warn("outputToCount:", Object.keys(this.outputToCount).length, this.outputToCount)
-                    })
-                    .catch(console.error)
+                this.collectTrainingExamples(buffer, itemKey, fftSlices)
+            } else {
+                this.predict(buffer, itemKey, fftSlices)
             }
         } catch (error) {
             console.error(error)
         }
+    }
+
+    async predict(buffer, itemKey, fftSlices) {
+        let {sampleRate} = buffer._buffer
+        let queue = []
+        let markers = []
+        for (let i = 0; i < fftSlices.length; ++i) {
+            let slice = fftSlices[i]
+            let start = (i * this.extractFFT.getStepSize()) / sampleRate
+            if (queue.length >= NUM_FRAMES)
+                queue.shift()
+            queue.push(slice)
+            if (queue.length >= NUM_FRAMES) {
+                const input = tf.tensor(flatten(queue), [1, ...INPUT_SHAPE]);
+                const probs = this.model.predict(input);
+                const predLabel = probs.argMax(1);
+                const output = (await predLabel.data())[0];
+                console.warn("Prediction:", output, OUTPUT_TO_PRESTONBLAIR[output])
+                if (!markers.length || (markers.length && output !== markers[markers.length - 1].output)) {
+                    markers.push({
+                        start,
+                        output,
+                        label: OUTPUT_TO_PRESTONBLAIR[output],
+                    })
+                }
+                tf.dispose([input, probs, predLabel])
+            }
+        }
+        this.markers = markers
+        console.warn("Prediction markers", this.markers)
+        this.rerender()
+    }
+
+    collectTrainingExamples(buffer, itemKey, fftSlices) {
+        let {sampleRate} = buffer._buffer
+        axios.get(`/api/train_list/${itemKey}`)
+            .then(response => {
+                let {item} = response.data
+                console.log("NEW TRAIN ITEM:", buffer.duration, item)
+                this.setState({loading: false, item})
+                let markers = []
+                let {words} = item
+                let cursor = 0
+                words.forEach(word => {
+                    let {start, end, phones} = word
+                    if (phones) {
+                        if (cursor < start) {
+                            markers.push({
+                                start: cursor,
+                                end: start,
+                                output: 0,
+                                label: 'rest',
+                            })
+                        }
+                        cursor = start
+                        phones.forEach(phone => {
+                            let output = getOutputFromGentlePhone(phone.phone)
+                            markers.push({
+                                start: cursor,
+                                end: cursor + phone.duration,
+                                output,
+                                label: output !== -1 ? OUTPUT_TO_PRESTONBLAIR[output] : 'rest',
+                            })
+                            cursor += phone.duration
+                        })
+                        cursor = end
+                    }
+                })
+                markers.push({
+                    start: cursor,
+                    end: buffer.duration,
+                    output: 0,
+                    label: 'rest',
+                })
+                //console.warn("Markers:", markers)
+                let markerIndex = 0
+                let queue = []
+                for (let i = 0; i < fftSlices.length; ++i) {
+                    let slice = fftSlices[i]
+                    let start = (i * this.extractFFT.getStepSize()) / sampleRate
+                    while (markerIndex < markers.length && markers[markerIndex].end < start)
+                        markerIndex++
+                    if (queue.length >= NUM_FRAMES)
+                        queue.shift()
+                    queue.push(slice)
+                    if (queue.length >= NUM_FRAMES && markerIndex < markers.length) {
+                        // console.warn(start, markers[markerIndex])
+                        // console.warn(queue.length, queue[0].length, queue)
+                        let { output } = markers[markerIndex]
+                        if (output !== -1) {
+                            this.examples.push({input: flatten(queue), output});
+                            this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
+                        }
+                    }
+                }
+                this.markers = markers
+                console.warn("outputToCount:", Object.keys(this.outputToCount).length, this.outputToCount)
+                this.rerender()
+            })
+            .catch(console.error)
     }
 
     rerender() {
@@ -399,6 +514,7 @@ export default class App extends React.Component {
             <div>
                 <MicAI />
                 <h3>FileAI</h3>
+                <canvas className="border border-info d-block mb-2" width="300" height="300" ref={x => {this.animateCanvas = x}}></canvas>
                 <div className="card">
                     <h5 className="card-header">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
