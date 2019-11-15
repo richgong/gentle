@@ -34,3 +34,41 @@ export function flatten(tensors) {
     tensors.forEach((arr, i) => result.set(arr, i * size));
     return result;
 }
+
+
+// Copied from "Piano.jsx / Utils.js"
+export class LoopList {
+    constructor(size) {
+        this.items = []
+        this.items.length = size
+        this.cur = 0
+        this.c = 0
+    }
+
+    clear() {
+        this.c = 0
+    }
+
+    ready()
+    {
+        return this.c >= this.items.length
+    }
+
+    push(item) {
+        if (++this.cur >= this.items.length)
+            this.cur = 0;
+        let old = this.items[this.cur]
+        this.items[this.cur] = item
+        if (this.c < this.items.length) {
+            old = null
+            ++this.c
+        }
+        return old
+    }
+
+    back(i)
+    {
+        i = this.cur - i
+        return this.items[i >= 0 ? i : this.items.length + i]
+    }
+}

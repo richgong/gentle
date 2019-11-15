@@ -1,7 +1,7 @@
 import React from 'react'
 import axios from 'axios'
 import tinycolor from 'tinycolor2'
-import { random, flatten } from './utils'
+import { random, flatten, LoopList } from './utils'
 import { MicAI } from './MicAI.jsx'
 import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
 // import PHONE_MAP from './phones.json'
@@ -329,10 +329,9 @@ export default class App extends React.Component {
     async predict(buffer, itemKey, fftSlices) {
         let {sampleRate} = buffer._buffer
         let queue = []
-        let markers = []
+        let predictions = []
         for (let i = 0; i < fftSlices.length; ++i) {
             let slice = fftSlices[i]
-            let start = (i * this.extractFFT.getStepSize()) / sampleRate
             if (queue.length >= NUM_FRAMES)
                 queue.shift()
             queue.push(slice)
@@ -341,15 +340,45 @@ export default class App extends React.Component {
                 const probs = this.model.predict(input);
                 const predLabel = probs.argMax(1);
                 const output = (await predLabel.data())[0];
-                console.warn("Prediction:", output, OUTPUT_TO_PRESTONBLAIR[output])
-                if (!markers.length || (markers.length && output !== markers[markers.length - 1].output)) {
-                    markers.push({
-                        start,
-                        output,
-                        label: OUTPUT_TO_PRESTONBLAIR[output],
-                    })
-                }
+                //console.warn("Prediction:", output, OUTPUT_TO_PRESTONBLAIR[output])
+                predictions.push(output)
                 tf.dispose([input, probs, predLabel])
+            } else
+                predictions.push(null)
+        }
+        // smooth over predictions
+        let loopList = new LoopList(5)
+        let modeMap = {}
+        let smoothPred = []
+        for (let i = 0; i < predictions.length; ++i) {
+            let output = predictions[i]
+            if (output != null) {
+                modeMap[output] = (modeMap[output] || 0) + 1
+                let old = loopList.push(output)
+                if (old != null) {
+                    modeMap[old] -= 1
+                }
+            }
+            if (loopList.ready()) {
+                console.warn("SHIT", modeMap)
+                smoothPred[i - 2] = Object.keys(modeMap).reduce((a, b) => (modeMap[a] > modeMap[b] ? a : b));
+            } else {
+                smoothPred[i] = 0
+            }
+        }
+
+        console.warn("Predictions / smoothPred:", predictions, smoothPred)
+
+        let markers = []
+        for (let i = 0; i < predictions.length; ++i) { // iterate over original "predictions" instead of smoothPred
+            let start = (i * this.extractFFT.getStepSize()) / sampleRate
+            let output = smoothPred[i] || 0
+            if (!markers.length || (markers.length && output !== markers[markers.length - 1].output)) {
+                markers.push({
+                    start,
+                    output,
+                    label: OUTPUT_TO_PRESTONBLAIR[output],
+                })
             }
         }
         this.markers = markers
@@ -447,6 +476,10 @@ export default class App extends React.Component {
         tf.dispose([xs, ys]);
     }
 
+    async save() {
+        await this.model.save('downloads://my-model');
+    }
+
     download() {
         let blob = new Blob(this.recordedBlobs);
         let url = window.URL.createObjectURL(blob);
@@ -505,7 +538,6 @@ export default class App extends React.Component {
                 </table>
             </div>
         )
-
     }
 
     render() {
@@ -519,12 +551,13 @@ export default class App extends React.Component {
                     <h5 className="card-header">
                         {isStarted && !isRecording && <button className="btn btn-warning" onClick={this.record.bind(this)}>Record</button>}
                         {isStarted && isRecording && <button className="btn btn-danger" onClick={this.stop.bind(this)}>Stop</button>}
-                        {this.recordedBlobs.length > 0 && <button className="btn btn-secondary ml-1" onClick={this.download.bind(this)}>Download recording</button>}
-                        {hasRecording && <button className="btn btn-success ml-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
-                        <button disabled={loadingLibrary || loading} className="btn btn-info ml-1" onClick={this.loadNextItem.bind(this)}>
+                        {this.recordedBlobs.length > 0 && <button className="btn btn-secondary m-1" onClick={this.download.bind(this)}>Download recording</button>}
+                        {hasRecording && <button className="btn btn-success m-1" onClick={this.togglePlay.bind(this)}>{playing ? "Stop" : "Play"}</button>}
+                        <button disabled={loadingLibrary || loading} className="btn btn-info m-1" onClick={this.loadNextItem.bind(this)}>
                             Load next (current: {itemKey || 'N/A'}) ({libraryItems.length} items)
                         </button>
-                        <button className="btn btn-danger ml-1" onClick={this.train.bind(this)}>Train on {this.examples.length} examples</button>
+                        <button className="btn btn-danger m-1" onClick={this.train.bind(this)}>Train on {this.examples.length} examples</button>
+                        <button className="btn btn-danger m-1" onClick={this.save.bind(this)}>Save model</button>
                     </h5>
                     <div className="card-body">
                         Waveform:
