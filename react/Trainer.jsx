@@ -347,7 +347,8 @@ export default class App extends React.Component {
                 predictions.push(null)
         }
         // smooth over predictions
-        let loopList = new LoopList(5)
+        let WINDOW = 3
+        let loopList = new LoopList(WINDOW * 2 + 1)
         let modeMap = {}
         let smoothPred = []
         for (let i = 0; i < predictions.length; ++i) {
@@ -360,8 +361,7 @@ export default class App extends React.Component {
                 }
             }
             if (loopList.ready()) {
-                console.warn("SHIT", modeMap)
-                smoothPred[i - 2] = Object.keys(modeMap).reduce((a, b) => (modeMap[a] > modeMap[b] ? a : b));
+                smoothPred[i - WINDOW] = Object.keys(modeMap).reduce((a, b) => (modeMap[a] > modeMap[b] ? a : b));
             } else {
                 smoothPred[i] = 0
             }
