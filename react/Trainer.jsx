@@ -8,8 +8,9 @@ import {ExtractFFT, FRAME_SIZE} from "./ExtractFFT";
 import PRESTONBLAIR_TO_OUTPUT from './prestonblair_to_output.json'
 import GENTLE_TO_PRESTONBLAIR from './gentle_to_prestonblair.json'
 
-export const NUM_FRAMES = 10
-export const INPUT_SHAPE = [NUM_FRAMES, FRAME_SIZE, 1]
+export const INPUT_WINDOW = 3
+export const NUM_INPUT_FRAMES = INPUT_WINDOW * 2 + 1
+export const INPUT_SHAPE = [NUM_INPUT_FRAMES, FRAME_SIZE, 1]
 export const NUM_OUTPUT = Object.keys(PRESTONBLAIR_TO_OUTPUT).length
 
 function getOutputFromGentlePhone(phone) {
@@ -102,7 +103,7 @@ export default class App extends React.Component {
             let model = tf.sequential();
             model.add(tf.layers.depthwiseConv2d({
                 depthMultiplier: 8,
-                kernelSize: [NUM_FRAMES, 3],
+                kernelSize: [NUM_INPUT_FRAMES, 3],
                 activation: 'relu',
                 inputShape: INPUT_SHAPE
             }));
@@ -120,7 +121,7 @@ export default class App extends React.Component {
             let model = tf.sequential();
             model.add(tf.layers.depthwiseConv2d({
                 depthMultiplier: 8,
-                kernelSize: [NUM_FRAMES, 3],
+                kernelSize: [NUM_INPUT_FRAMES, 3],
                 activation: 'relu',
                 inputShape: INPUT_SHAPE
             }));
@@ -330,38 +331,38 @@ export default class App extends React.Component {
         let {sampleRate} = buffer._buffer
         let queue = []
         let predictions = []
-        for (let i = 0; i < fftSlices.length; ++i) {
+        let numSlices = fftSlices.length
+        for (let i = 0; i < numSlices; ++i) {
             let slice = fftSlices[i]
-            if (queue.length >= NUM_FRAMES)
+            if (queue.length >= NUM_INPUT_FRAMES)
                 queue.shift()
             queue.push(slice)
-            if (queue.length >= NUM_FRAMES) {
+            if (queue.length >= NUM_INPUT_FRAMES) {
                 const input = tf.tensor(flatten(queue), [1, ...INPUT_SHAPE]);
                 const probs = this.model.predict(input);
                 const predLabel = probs.argMax(1);
                 const output = (await predLabel.data())[0];
                 //console.warn("Prediction:", output, OUTPUT_TO_PRESTONBLAIR[output])
-                predictions.push(output)
+                predictions[i - INPUT_WINDOW] = output
                 tf.dispose([input, probs, predLabel])
-            } else
-                predictions.push(null)
+            }
         }
         // smooth over predictions
-        let WINDOW = 3
-        let loopList = new LoopList(WINDOW * 2 + 1)
+        let SMOOTH_INPUT_WINDOW = 3
+        let smoothOutputLoop = new LoopList(SMOOTH_INPUT_WINDOW * 2 + 1)
         let modeMap = {}
         let smoothPred = []
-        for (let i = 0; i < predictions.length; ++i) {
+        for (let i = 0; i < numSlices; ++i) {
             let output = predictions[i]
             if (output != null) {
                 modeMap[output] = (modeMap[output] || 0) + 1
-                let old = loopList.push(output)
+                let old = smoothOutputLoop.push(output)
                 if (old != null) {
                     modeMap[old] -= 1
                 }
             }
-            if (loopList.ready()) {
-                smoothPred[i - WINDOW] = Object.keys(modeMap).reduce((a, b) => (modeMap[a] > modeMap[b] ? a : b));
+            if (smoothOutputLoop.ready()) {
+                smoothPred[i - SMOOTH_INPUT_WINDOW] = Object.keys(modeMap).reduce((a, b) => (modeMap[a] > modeMap[b] ? a : b));
             } else {
                 smoothPred[i] = 0
             }
@@ -370,7 +371,7 @@ export default class App extends React.Component {
         console.warn("Predictions / smoothPred:", predictions, smoothPred)
 
         let markers = []
-        for (let i = 0; i < predictions.length; ++i) { // iterate over original "predictions" instead of smoothPred
+        for (let i = 0; i < numSlices; ++i) { // iterate over original "predictions" instead of smoothPred
             let start = (i * this.extractFFT.getStepSize()) / sampleRate
             let output = smoothPred[i] || 0
             if (!markers.length || (markers.length && output !== markers[markers.length - 1].output)) {
@@ -427,25 +428,30 @@ export default class App extends React.Component {
                     output: 0,
                     label: 'rest',
                 })
-                //console.warn("Markers:", markers)
+                let outputs = []
                 let markerIndex = 0
-                let queue = []
                 for (let i = 0; i < fftSlices.length; ++i) {
-                    let slice = fftSlices[i]
                     let start = (i * this.extractFFT.getStepSize()) / sampleRate
                     while (markerIndex < markers.length && markers[markerIndex].end < start)
                         markerIndex++
-                    if (queue.length >= NUM_FRAMES)
+                    if (markerIndex < markers.length) {
+                        outputs[i] = markers[markerIndex].output
+                        // console.warn(start, markers[markerIndex])
+                    }
+                }
+                //console.warn("Markers:", markers)
+
+                let queue = []
+                for (let i = 0; i < fftSlices.length; ++i) {
+                    let slice = fftSlices[i]
+                    if (queue.length >= NUM_INPUT_FRAMES)
                         queue.shift()
                     queue.push(slice)
-                    if (queue.length >= NUM_FRAMES && markerIndex < markers.length) {
-                        // console.warn(start, markers[markerIndex])
+                    let output = outputs[i - INPUT_WINDOW]
+                    if (queue.length >= NUM_INPUT_FRAMES && output != null && outputs != -1) {
                         // console.warn(queue.length, queue[0].length, queue)
-                        let { output } = markers[markerIndex]
-                        if (output !== -1) {
-                            this.examples.push({input: flatten(queue), output});
-                            this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
-                        }
+                        this.examples.push({input: flatten(queue), output});
+                        this.outputToCount[output] = (this.outputToCount[output] || 0) + 1
                     }
                 }
                 this.markers = markers
