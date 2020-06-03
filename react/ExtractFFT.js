@@ -1,4 +1,4 @@
-import {AudioUtils, nextPowerOfTwo} from './audioUtils';
+import {AudioUtils, nextPowerOfTwo} from './AudioUtils';
 
 export const FRAME_SIZE = 40
 
